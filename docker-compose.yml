@@ -1,0 +1,18 @@
+services:
+  nginx:
+    build:
+      context: ./docker/development/nginx
+    volumes:
+      - ./docker/development/nginx:/etc/nginx/conf.d:ro,delegated
+      - ./public:/var/www/public:ro,delegated
+    restart: on-failure
+    ports:
+      - "127.0.0.1:8080:80"
+
+  backend:
+    build:
+      context: ./docker/development/backend
+    command: docker-php-entrypoint php-fpm
+    volumes:
+      - ./:/var/www:delegated
+    restart: on-failure
