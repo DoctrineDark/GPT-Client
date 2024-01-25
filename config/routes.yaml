@@ -1,0 +1,9 @@
+index:
+    path: /
+    controller: App\Controller\AppController::index
+    #methods: GET|HEAD
+
+openai_request:
+    path: /gpt/request
+    controller: App\Controller\AppController::request
+    methods: POST
