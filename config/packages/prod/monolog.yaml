@@ -1,4 +1,5 @@
 monolog:
+    channels: ['embedding', 'vectorizer']
     handlers:
         main:
             type: fingers_crossed
@@ -14,3 +15,15 @@ monolog:
             type: console
             process_psr_3_messages: false
             channels: ["!event", "!doctrine"]
+
+        embedding:
+            level:    debug
+            type:     stream
+            path:     '%kernel.logs_dir%/embedding_search.log'
+            channels: [embedding]
+
+        vectorizer:
+            level:    debug
+            type:     stream
+            path:     '%kernel.logs_dir%/vectorizer.log'
+            channels: [vectorizer]

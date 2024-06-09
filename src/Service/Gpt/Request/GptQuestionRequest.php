@@ -1,74 +1,68 @@
 <?php
 
-namespace App\Service\Gpt;
+namespace App\Service\Gpt\Request;
 
-class GptRequest
+class GptQuestionRequest extends GptRequest
 {
-    public $apiKey;
-
     public $entryTemplate;
 
     public $clientMessage;
     public $clientMessageTemplate;
+    public $fullClientMessage;
 
     public $lists;
     public $listsMessageTemplate;
+    public $listsMessages = [];
 
-    public $checkboxes;
+    public $checkboxes = [];
     public $checkboxesMessageTemplate;
+    public $checkboxesMessages = [];
 
-    public $customMessageTemplate;
+    public $userMessages;
 
-    public $systemMessage;
-    public $userMessage;
-
-    public $raw;
-
-    public function __construct(string $apiKey)
+    public function __construct()
     {
-        $this->apiKey = $apiKey;
-
-        $this->entryTemplate = $this->entryTemplate();
-        $this->listsMessageTemplate = $this->listsMessageTemplate();
-        $this->checkboxesMessageTemplate = $this->checkboxesMessageTemplate();
+        $this->entryTemplate = $this->defaultEntryTemplate();
+        $this->listsMessageTemplate = $this->defaultListsMessageTemplate();
+        $this->checkboxesMessageTemplate = $this->defaultCheckboxesMessageTemplate();
     }
 
-    public function setApiKey(string $apiKey)
+    /**
+     * @return $this
+     */
+    public function preparePrompt()
     {
-        $this->apiKey = $apiKey;
+        $prompt = '';
 
-        return $this;
-    }
+        if(!$this->clientMessageTemplate) {
+            $this->clientMessageTemplate = $this->defaultClientMessageTemplate();
+        }
 
-    public function setSystemMessage()
-    {
-        return $this;
-    }
+        if($this->lists || $this->checkboxes) {
+            $prompt .= $this->entryTemplate;
 
-    public function setUserMessage()
-    {
-        $message = $this->entryTemplate;
-        $message .= $this->prepareListsMessage($this->lists, $this->listsMessageTemplate);
-        $message .= $this->prepareCheckboxesMessage($this->checkboxes, $this->checkboxesMessageTemplate);
-        $message .= $this->prepareCustomMessageTemplate($this->clientMessage, $this->customMessageTemplate);
+            foreach($this->lists as $list) {
+                $this->listsMessages[] = $this->prepareListsMessage([$list], $this->listsMessageTemplate);
+            }
+            $prompt .= implode(PHP_EOL, $this->listsMessages);
 
-        dd($message);
+            foreach($this->checkboxes as $checkbox) {
+                $this->checkboxesMessages[] = $this->prepareCheckboxesMessage([$checkbox], $this->checkboxesMessageTemplate);
+            }
+            $prompt .= implode(PHP_EOL, $this->checkboxesMessages);
+        }
 
-        $this->userMessage = $message;
+        $this->fullClientMessage = $this->prepareClientMessageTemplate($this->clientMessage, $this->clientMessageTemplate);
+        $prompt .= $this->fullClientMessage;
 
-        return $this;
-    }
-
-    public function setRaw(?string $json) : self
-    {
-        $this->raw = $json;
+        $this->userMessage = $prompt;
 
         return $this;
     }
 
     /**
      * @param string $template
-     * @return GptRequest
+     * @return GptQuestionRequest
      */
     public function setEntryTemplate(string $template) : self
     {
@@ -79,7 +73,7 @@ class GptRequest
 
     /**
      * @param string $message
-     * @return GptRequest
+     * @return GptQuestionRequest
      */
     public function setClientMessage(string $message) : self
     {
@@ -91,7 +85,7 @@ class GptRequest
     /**
      * @param array $lists
      * @param array $values
-     * @return GptRequest
+     * @return GptQuestionRequest
      */
     public function setLists(array $lists, array $values) : self
     {
@@ -102,7 +96,7 @@ class GptRequest
 
     /**
      * @param string $template
-     * @return GptRequest
+     * @return GptQuestionRequest
      */
     public function setListsMessageTemplate(string $template) : self
     {
@@ -113,7 +107,7 @@ class GptRequest
 
     /**
      * @param array $checkboxes
-     * @return GptRequest
+     * @return GptQuestionRequest
      */
     public function setCheckboxes(array $checkboxes) : self
     {
@@ -124,7 +118,7 @@ class GptRequest
 
     /**
      * @param string $template
-     * @return GptRequest
+     * @return GptQuestionRequest
      */
     public function setCheckboxesMessageTemplate(string $template) : self
     {
@@ -135,25 +129,25 @@ class GptRequest
 
     /**
      * @param string|null $template
-     * @return GptRequest
+     * @return GptQuestionRequest
      */
-    public function setCustomMessageTemplate(?string $template) : self
+    public function setClientMessageTemplate(string $template) : self
     {
-        $this->customMessageTemplate = $template;
+        $this->clientMessageTemplate = $template;
 
         return $this;
     }
 
     /**
-     * @param array $list
+     * @param array $lists
      * @param array $values
      * @return array
      */
-    public function prepareLists(array $list, array $values) : array
+    public function prepareLists(array $lists, array $values) : array
     {
         $res = [];
 
-        foreach($list as $key => $name) {
+        foreach($lists as $key => $name) {
             $res[] = [$name => isset($values[$key]) ? $values[$key] : []];
         }
 
@@ -212,33 +206,19 @@ class GptRequest
      * @param string $template
      * @return string
      */
-    public function prepareCustomMessageTemplate(?string $message, ?string $template) : ?string
+    public function prepareClientMessageTemplate(?string $message, ?string $template) : string
     {
         if($message && $template) {
             return $this->bindVariables($template, ['user_message' => $message]);
         }
 
-        return null;
-    }
-
-    /**
-     * @param string $message
-     * @param array $variables
-     * @return string
-     *
-     * Variable format: [sample]
-     */
-    public function bindVariables(string $message, array $variables) : string
-    {
-        $variables = array_combine(array_map(function($key) {return '['.$key.']';}, array_keys($variables)), $variables);
-
-        return strtr($message, $variables);
+        return $template;
     }
 
     /**
      * @return string
      */
-    public function entryTemplate() : string
+    public function defaultEntryTemplate() : string
     {
         return 'Нужна твоя помощь для анализа текста сообщений клиентов.'.PHP_EOL;
     }
@@ -247,32 +227,32 @@ class GptRequest
      * @return string
      * Template variables: [list], [list_values]
      */
-    public function listsMessageTemplate() : string
+    public function defaultListsMessageTemplate() : string
     {
         return 'По тексту сообщения клиента определи одно самое подходящее значение параметра "[list]" и коротко сообщи его.'.PHP_EOL.
             'Варианты параметра:'.PHP_EOL.
-            '[list_values]'.PHP_EOL;
+            '[list_values].'.PHP_EOL;
     }
 
     /**
      * @return string
      * Template variables: [checkbox]
      */
-    public function checkboxesMessageTemplate() : string
+    public function defaultCheckboxesMessageTemplate() : string
     {
         return 'По тексту сообщения клиента определи одно самое подходящее значение параметра "[checkbox]" и коротко сообщи его.'.PHP_EOL.
             'Варианты параметра:'.PHP_EOL.
             '1) Да'.PHP_EOL.
-            '2) Нет'.PHP_EOL;
+            '2) Нет.'.PHP_EOL;
     }
 
     /**
      * @return string
-     * Template variables: [client_message]
+     * Template variables: [user_message]
      */
-    public function clientMessageTemplate() : string
+    public function defaultClientMessageTemplate() : string
     {
         return 'Текст сообщения клиента для анализа:'.PHP_EOL.
-            '"[client_message]"';
+            '"[user_message]".'.PHP_EOL;
     }
 }

@@ -16,3 +16,31 @@ services:
     volumes:
       - ./:/var/www:delegated
     restart: on-failure
+
+  keydb:
+    build:
+      context: ./docker/development/keydb
+    restart: on-failure
+    volumes:
+      - ./docker/host/dir:/data
+    ports:
+      - "127.0.0.1:6379:6379"
+
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    restart: always
+    environment:
+      REDIS_HOSTS: keydb
+      REDIS_HOST: keydb
+      REDIS_PORT: keydb:6379
+      #REDIS_PASSWORD: secret
+      #HTTP_USER: root
+      #HTTP_PASSWORD: root
+    ports:
+      - "8081:8081"
+
+  #keydb-by-indus:
+  #  image: vsaps/keydb_jsonsearch:latest
+  #  restart: always
+  #  ports:
+  #    - "127.0.0.1:6378:6379"

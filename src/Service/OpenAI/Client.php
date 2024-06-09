@@ -240,10 +240,6 @@ class Client
             $this->stream_method = $stream;
         }
 
-        if(!isset($opts['api_key'])) {
-            $opts['api_key'] = $this->apiKey;
-        }
-
         $opts['model'] = $opts['model'] ?? $this->chatModel;
         $url = Url::chatUrl();
         $this->baseUrl($url);
@@ -981,8 +977,11 @@ class Client
      */
     private function sendRequest(string $url, string $method, array $opts = [])
     {
+        $apiKey = (array_key_exists('api_key', $opts) && !empty($opts['api_key'])) ? $opts['api_key'] : $this->apiKey;
+        unset($opts['api_key']);
+
         $post_fields = json_encode($opts);
-        $headers = array_merge($this->headers, ['Authorization: Bearer '.$opts['api_key']]);
+        $headers = array_merge($this->headers, ['Authorization: Bearer '.$apiKey]);
 
         if (array_key_exists('file', $opts) || array_key_exists('image', $opts)) {
             $headers = array_merge($headers, [$this->contentTypes["multipart/form-data"]]);

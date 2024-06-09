@@ -1,9 +1,144 @@
-index:
+# Pages
+gpt_request_page:
     path: /
-    controller: App\Controller\AppController::index
-    #methods: GET|HEAD
+    controller: App\Controller\AppController::gptRequestPage
+    methods: GET|HEAD
 
-openai_request:
+gpt_search_page:
+    path: /search
+    controller: App\Controller\AppController::gptSearchPage
+    methods: GET|HEAD
+
+gpt_summarize_page:
+    path: /summarize
+    controller: App\Controller\AppController::gptSummarizePage
+    methods: GET|HEAD
+
+gpt_request_history_rows:
+    path: /gpt/request/history
+    controller: App\Controller\GptRequestHistoryController::index
+    methods: GET|HEAD
+
+gpt_request_history_row:
+    path: /gpt/request/history/{gptRequestHistory}
+    controller: App\Controller\GptRequestHistoryController::show
+    methods: GET|HEAD
+
+knowledgebase_data_upload_page:
+    path: /knowledgebase/data/upload
+    controller: App\Controller\DataUploadController::index
+    methods: GET|HEAD
+
+knowledgebase_articles:
+    path: /knowledgebase/articles
+    controller: App\Controller\ArticleController::index
+    methods: GET|HEAD
+
+knowledgebase_article:
+    path: /knowledgebase/articles/{article}
+    controller: App\Controller\ArticleController::show
+    methods: GET|HEAD
+
+knowledgebase_article_paragraph:
+    path: /knowledgebase/articles/{article}/paragraphs/{articleParagraph}
+    controller: App\Controller\ArticleParagraphController::show
+    methods: GET|HEAD
+
+knowledgebase_templates:
+    path: /knowledgebase/templates
+    controller: App\Controller\TemplateController::index
+    methods: GET|HEAD
+
+knowledgebase_template:
+    path: /knowledgebase/templates/{template}
+    controller: App\Controller\TemplateController::show
+    methods: GET|HEAD
+
+# Actions
+gpt_request:
     path: /gpt/request
     controller: App\Controller\AppController::request
     methods: POST
+
+gpt_vectorize:
+    path: /gpt/vectorize
+    controller: App\Controller\AppController::vectorize
+    methods: POST
+
+gpt_search:
+    path: /gpt/search
+    controller: App\Controller\AppController::search
+    methods: POST
+
+gpt_summarize:
+    path: /gpt/summarize
+    controller: App\Controller\AppController::summarize
+    methods: POST
+
+knowledgebase_data_upload:
+    path: /knowledgebase/data/upload
+    controller: App\Controller\DataUploadController::upload
+    methods: POST
+
+knowledgebase_categories_upload:
+    path: /knowledgebase/categories/upload
+    controller: App\Controller\KnowledgebaseCategoryController::upload
+    methods: POST
+
+knowledgebase_sections_upload:
+    path: /knowledgebase/sections/upload
+    controller: App\Controller\KnowledgebaseSectionController::upload
+    methods: POST
+
+# Messages
+message_store:
+    path: /messages
+    controller: App\Controller\MessageController::store
+    methods: POST
+
+messages_upload:
+    path: /messages/upload
+    controller: App\Controller\MessageController::upload
+    methods: POST
+
+messages_delete_selected:
+    path: /messages/selected
+    controller: App\Controller\MessageController::deleteSelected
+    methods: DELETE
+
+messages_delete_all:
+    path: /messages/all
+    controller: App\Controller\MessageController::deleteAll
+    methods: DELETE
+
+# Gpt Options
+gpt_request_option_save:
+    path: /gpt/request/option/save
+    controller: App\Controller\GptRequestOptionController::save
+    methods: POST
+
+gpt_search_option_save:
+    path: /gpt/search/option/save
+    controller: App\Controller\GptSearchOptionController::save
+    methods: POST
+
+gpt_summarize_option_save:
+    path: /gpt/summarize/option/save
+    controller: App\Controller\GptSummarizeOptionController::save
+    methods: POST
+
+# Knowledgebase Categories & Sections
+knowledgebase_categories:
+    path: /knowledgebase/categories
+    controller: App\Controller\KnowledgebaseCategoryController::index
+    methods: GET|HEAD
+
+knowledgebase_sections:
+    path: /knowledgebase/sections
+    controller: App\Controller\KnowledgebaseSectionController::index
+    methods: GET|HEAD
+
+# Misc
+test_message:
+    path: /test/message
+    controller: App\Controller\TestController::testMessage

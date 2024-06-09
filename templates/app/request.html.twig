@@ -1,0 +1,186 @@
+{% extends 'base.html.twig' %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    {{ encore_entry_link_tags('gpt-request.scss') }}
+{% endblock %}
+
+{% block body %}
+<div class="container p-3">
+    <form class="gpt-form" action="/gpt/request" method="post" enctype="multipart/form-data" onsubmit="event.preventDefault()">
+        <div class="row pb-3">
+            <div class="form-group">
+                <label for="gpt_api_key">API Key:</label>
+                <input type="password" required value="" class="form-control" id="gpt_api_key" name="gpt_api_key">
+            </div>
+        </div>
+        <div class="row pb-3">
+            <div class="form-group">
+                <label for="client_message">Client Message:</label>
+                <textarea class="form-control" id="client_message" name="client_message" rows="4"></textarea>
+            </div>
+        </div>
+
+        <div class="row pb-3">
+            <div class="col-lg">
+                <label for="gpt_service">GPT Service:</label>
+                <select class="form-control" id="gpt_service" name="gpt_service">
+                    <option value="openai">OpenAI</option>
+                    <option value="yandex-gpt" disabled>Yandex GPT</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="actions pb-3">
+            <div class="lists_section">
+                <div class="lists_wrapper d-none">
+                    <label>Lists:</label>
+                    <div class="lists border rounded "></div>
+                </div>
+                <button type="button" name="add_list" class="btn btn-link add_list">Add List</button>
+            </div>
+
+            <div class="checkboxes_section">
+                <div class="checkboxes_wrapper d-none">
+                    <label>Checkboxes:</label>
+                    <div class="checkboxes border rounded"></div>
+                </div>
+                <button type="button" name="add_checkbox" class="btn btn-link add_checkbox">Add Checkbox</button>
+            </div>
+
+            <div class="client_message_template_wrapper">
+                <div class="client_message_template"></div>
+                <button type="button" name="add_client_message_template" class="btn btn-link add_client_message_template">Add Client Message Template</button>
+                <button type="button" name="rm_client_message_template" class="btn btn-link rm_client_message_template d-none">Remove Client Message Template</button>
+            </div>
+
+            <div class="raw_gpt_request_wrapper">
+                <div class="raw_gpt_request"></div>
+                <button type="button" name="add_raw" class="btn btn-link add_raw">Add Custom GPT-Request</button>
+                <button type="button" name="rm_raw" class="btn btn-link rm_raw d-none">Remove Custom GPT-Request</button>
+            </div>
+        </div>
+
+        <div class="options pb-3 mb-3">
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#options-modal">Options</button>
+        </div>
+
+        <div class="row pb-3">
+            <div class="btn-group">
+                <button class="btn btn-primary btn-lg request">Request</button>
+            </div>
+        </div>
+
+        <div class="row pb-3">
+            <div class="form-group">
+                <div class="gpt_response_wrapper">
+                    <label for="gpt_response">GPT Response:</label>
+                    <div id="gpt_response" class="gpt_response border rounded overflow-auto mh-100 p-2" style="height: 400px;">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+    <form class="gpt-option-form" action="/gpt/request/option/save" method="post" enctype="multipart/form-data" onsubmit="event.preventDefault()">
+        <div class="modal fade" id="options-modal" tabindex="-1" aria-labelledby="options-modal-label" aria-hidden="true">
+            <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h1 class="modal-title fs-5" id="options-modal-label">Options</h1>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="card card-body">
+                            <div class="row">
+                                <div class="col-sm">
+                                    <label for="gpt_model">GPT Model:</label>
+                                    <select class="form-control" id="gpt_model" name="gpt_model">
+                                        <option value="gpt-3.5-turbo" {{ (requestOption.model == 'gpt-3.5-turbo' ? 'selected' : '') }}>gpt-3.5-turbo</option>
+                                        <option value="gpt-4" {{ (requestOption.model == 'gpt-4' ? 'selected' : '') }}>gpt-4</option>
+                                    </select>
+                                </div>
+                                <div class="col-sm">
+                                    <div class="form-group">
+                                        <label for="gpt_temperature">Temperature:</label>
+                                        <input type="text" value="{{ requestOption.temperature }}" class="form-control" id="gpt_temperature" name="gpt_temperature">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-sm">
+                                    <div class="form-group">
+                                        <label for="gpt_max_tokens">Max Tokens:</label>
+                                        <input type="text" value="{{ requestOption.maxTokens }}" class="form-control" id="gpt_max_tokens" name="gpt_max_tokens">
+                                    </div>
+                                </div>
+                                <div class="col-sm">
+                                    <div class="form-group">
+                                        <label for="gpt_token_limit">Prompt Token Limit:</label>
+                                        <input type="text" value="{{ requestOption.promptTokenLimit }}" class="form-control" id="gpt_token_limit" name="gpt_token_limit">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-sm">
+                                    <div class="form-group">
+                                        <label for="gpt_frequency_penalty">Frequency Penalty:</label>
+                                        <input type="text" value="{{ requestOption.frequencyPenalty }}" class="form-control" id="gpt_frequency_penalty" name="gpt_frequency_penalty">
+                                    </div>
+                                </div>
+                                <div class="col-sm">
+                                    <div class="form-group">
+                                        <label for="gpt_presence_penalty">Presence Penalty:</label>
+                                        <input type="text" value="{{ requestOption.presencePenalty }}" class="form-control" id="gpt_presence_penalty" name="gpt_presence_penalty">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mt-3">
+                                <div class="row">
+                                    <div class="col-lg">
+                                        <div class="form-group">
+                                            <label for="system_message">System Message:</label>
+                                            <textarea class="form-control" id="system_message" name="system_message" rows="6">{{ requestOption.systemMessage }}</textarea>
+                                        </div>
+                                    </div>
+                                    <div class="col-lg">
+                                        <div class="form-group">
+                                            <label for="entry_template">Entry Template:</label>
+                                            <textarea class="form-control" id="entry_template" name="entry_template" rows="6">{{ requestOption.entryTemplate }}</textarea>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-lg">
+                                        <div class="form-group">
+                                            <label for="lists_message_template">Lists Message Template:</label>
+                                            <textarea class="form-control" id="lists_message_template" name="lists_message_template" rows="6">{{ requestOption.listsMessageTemplate }}</textarea>
+                                        </div>
+                                    </div>
+                                    <div class="col-lg">
+                                        <div class="form-group">
+                                            <label for="checkboxes_message_template">Checkboxes Message Template:</label>
+                                            <textarea class="form-control" id="checkboxes_message_template" name="checkboxes_message_template" rows="6">{{ requestOption.checkboxesMessageTemplate }}</textarea>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <button class="btn btn-primary">Save</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+<input type="hidden" id="client_message_template_buffer" value="{{ requestOption.clientMessageTemplate }}"/>
+<input type="hidden" id="raw_request_template_buffer" value="{{ requestOption.rawRequestTemplate }}"/>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    {{ encore_entry_script_tags('gpt-request.js') }}
+{% endblock %}
+

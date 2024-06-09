@@ -1,0 +1,68 @@
+{% extends 'base.html.twig' %}
+
+{% block stylesheets %}
+    {{ parent() }}
+{% endblock %}
+
+{% block body %}
+<div class="container p-3">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card">
+                <div class="card-body">
+                    <h2 class="card-title">{{ article.articleTitle ?? "Article##{article.Id}" }}</h2>
+                    <p class="card-text text-muted">{{ article.createdAt|date("F jS, Y | g:ia") }}</p>
+                    <p class="card-text fw-bold my-1">Category: {{ article.section.category.categoryTitle|default('NONE') }}</p>
+                    <p class="card-text fw-bold my-1">Section: {{ article.section.sectionTitle|default('NONE') }}</p>
+                    <p class="card-text my-1">External ID: {{ article.externalId }}</p>
+                    {##}
+                    {% if(article.active) %}
+                        <p class="card-text my-1">Active: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="green" class="bi bi-check" viewBox="0 0 16 16"><path d="M10.97 4.97a.75.75 0 0 1 1.07 1.05l-3.99 4.99a.75.75 0 0 1-1.08.02L4.324 8.384a.75.75 0 1 1 1.06-1.06l2.094 2.093 3.473-4.425z"/></svg></p>
+                    {% else %}
+                        <p class="card-text my-1">Active: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="red" class="bi bi-x" viewBox="0 0 16 16"><path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708"/></svg></p>
+                    {% endif %}
+                    {##}
+                    {% if redisSearcher.exists([
+                        constant('App\\Service\\VectorSearch\\RedisSearcher::ROOT'),
+                        constant('App\\Service\\VectorSearch\\RedisSearcher::DELIMITER'),
+                        'articles',
+                        constant('App\\Service\\VectorSearch\\RedisSearcher::DELIMITER'),
+                        article.Id
+                    ]|join) %}
+                        <p class="card-text my-1">Vectorized: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="green" class="bi bi-check" viewBox="0 0 16 16"><path d="M10.97 4.97a.75.75 0 0 1 1.07 1.05l-3.99 4.99a.75.75 0 0 1-1.08.02L4.324 8.384a.75.75 0 1 1 1.06-1.06l2.094 2.093 3.473-4.425z"/></svg></p>
+                    {% else %}
+                        <p class="card-text my-1">Vectorized: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="red" class="bi bi-x" viewBox="0 0 16 16"><path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708"/></svg></p>
+                    {% endif %}
+                    <hr>
+                    {% for articleParagraph in article.paragraphs %}
+                    <div class="card m-3 p-3">
+                        <p class="card-text"><b><a href="/knowledgebase/articles/{{ article.Id }}/paragraphs/{{ articleParagraph.Id }}">{{ articleParagraph.paragraphTitle ?? "ArticleParagraph##{articleParagraph.Id}" }}</a></b></p>
+                        {% if redisSearcher.exists([
+                            constant('App\\Service\\VectorSearch\\RedisSearcher::ROOT'),
+                            constant('App\\Service\\VectorSearch\\RedisSearcher::DELIMITER'),
+                            'articles',
+                            constant('App\\Service\\VectorSearch\\RedisSearcher::DELIMITER'),
+                            articleParagraph.article.Id,
+                            constant('App\\Service\\VectorSearch\\RedisSearcher::DELIMITER'),
+                            'paragraphs',
+                            constant('App\\Service\\VectorSearch\\RedisSearcher::DELIMITER'),
+                            articleParagraph.Id
+                        ]|join) %}
+                            <p class="card-text">Vectorized: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="green" class="bi bi-check" viewBox="0 0 16 16"><path d="M10.97 4.97a.75.75 0 0 1 1.07 1.05l-3.99 4.99a.75.75 0 0 1-1.08.02L4.324 8.384a.75.75 0 1 1 1.06-1.06l2.094 2.093 3.473-4.425z"/></svg></p>
+                        {% else %}
+                            <p class="card-text">Vectorized: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="red" class="bi bi-x" viewBox="0 0 16 16"><path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708"/></svg></p>
+                        {% endif %}
+                        <p class="card-text">{{ articleParagraph.paragraphContent|nl2br }}</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+{% endblock %}
+

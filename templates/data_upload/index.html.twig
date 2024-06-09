@@ -1,0 +1,70 @@
+{% extends 'base.html.twig' %}
+
+{% block stylesheets %}
+    {{ parent() }}
+{% endblock %}
+
+{% block body %}
+    <div class="container p-3">
+        <form class="vectorize-form" action="/gpt/vectorize" method="post" enctype="multipart/form-data" onsubmit="event.preventDefault()">
+            <div class="row pb-3">
+                <div class="form-group">
+                    <label for="gpt_api_key">API Key:</label>
+                    <input type="password" required value="" class="form-control" id="gpt_api_key" name="gpt_api_key">
+                </div>
+            </div>
+            <div class="row pb-3">
+                <div class="col-sm">
+                    <label for="gpt_service">GPT Service:</label>
+                    <select class="form-control" id="gpt_service" name="gpt_service">
+                        <option value="openai">OpenAI</option>
+                        <option value="yandex-gpt" disabled>Yandex GPT</option>
+                    </select>
+                </div>
+            </div>
+            <div class="row pb-3">
+                <div class="col-sm">
+                    <label for="gpt_embedding_model">Embedding Model:</label>
+                    <select class="form-control" id="gpt_embedding_model" name="gpt_embedding_model">
+                        <option value="text-embedding-3-small">text-embedding-3-small</option>
+                        <option value="text-embedding-3-large">text-embedding-3-large</option>
+                        <option value="text-embedding-ada-002">text-embedding-ada-002</option>
+                    </select>
+                </div>
+            </div>
+            <div class="row pb-3">
+                <div class="col-sm">
+                    <div class="form-group">
+                        <label for="gpt_max_tokens_per_chunk">Max tokens per chunk:</label>
+                        <input disabled type="text" value="2000" class="form-control" id="gpt_max_tokens_per_chunk" name="gpt_max_tokens_per_chunk">
+                    </div>
+                </div>
+            </div>
+        </form>
+        <form class="data-upload-form" action="/knowledgebase/data/upload" method="post" enctype="multipart/form-data" onsubmit="event.preventDefault()">
+            <div class="row pb-3">
+                <label for="articles">Articles</label>
+                <div class="input-group input-group-lg">
+                    <input type="file" class="form-control" id="articles" name="articles[]" multiple>
+                </div>
+            </div>
+            <div class="row pb-3">
+                <label for="templates">Templates</label>
+                <div class="input-group input-group-lg">
+                    <input type="file" class="form-control" id="templates" name="templates[]" multiple>
+                </div>
+            </div>
+            <div class="row py-3">
+                <div class="btn-group">
+                    <button class="btn btn-primary btn-lg upload" type="button">Upload</button>
+                </div>
+            </div>
+        </form>
+    </div>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    {{ encore_entry_script_tags('data-upload.js') }}
+{% endblock %}
+

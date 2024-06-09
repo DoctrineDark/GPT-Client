@@ -1,0 +1,68 @@
+{% extends 'base.html.twig' %}
+
+{% block stylesheets %}
+    {{ parent() }}
+{% endblock %}
+
+{% block body %}
+    <div class="container p-3">
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                <tr>
+                    <th scope="col">ID</th>
+                    <th scope="col">Model</th>
+                    <th scope="col">Date</th>
+                    <th scope="col">Assistant Message</th>
+                    <th scope="col">Total Tokens</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for gptRequestHistory in paginator %}
+                    <tr>
+                        <td>{{ gptRequestHistory.Id }}</td>
+                        <td>{{ gptRequestHistory.Model }}</td>
+                        <td>{{ gptRequestHistory.Datetime|date("d M Y H:i:s") }}</td>
+                        <td>
+                            <a href="/gpt/request/history/{{ gptRequestHistory.Id }}">
+                                {{ gptRequestHistory.assistantMessage|length > 50 ? gptRequestHistory.assistantMessage|slice(0, 50) ~ '...' : gptRequestHistory.assistantMessage }}
+                            </a>
+                        </td>
+                        <td>{{ gptRequestHistory.TotalTokens }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% set _currentRoute = app.request.attributes.get('_route') %}
+        {% set _currentParams = app.request.query.all|merge(app.request.attributes.get('_route_params')) %}
+
+        {% if lastPage > 1 %}
+            <nav>
+                <ul class="pagination justify-content-center">
+                    <li class="page-item{{ page <= 1 ? ' disabled' : '' }}">
+                        <a class="page-link" href="{{ path(_currentRoute, _currentParams|merge({page: page - 1})) }}" aria-label="Prev">
+                            &laquo; Prev
+                        </a>
+                    </li>
+                    {% for i in 1..lastPage %}
+                        <li class="page-item {% if i == page %}active{% endif %}">
+                            <a class="page-link" href="{{ path(_currentRoute, _currentParams|merge({page: i})) }}">{{ i }}</a>
+                        </li>
+                    {% endfor %}
+                    <li class="page-item {{ page >= lastPage ? ' disabled' : '' }}">
+                        <a class="page-link" href="{{ path(_currentRoute, _currentParams|merge({page: page + 1})) }}" aria-label="Next">
+                            Next &raquo;
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        {% endif %}
+    </div>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+{% endblock %}
+
