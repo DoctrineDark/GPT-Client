@@ -1,0 +1,49 @@
+{% block navbar %}
+<nav class="navbar navbar-expand-md navbar-light bg-light">
+    <div class="container">
+        <div class="container-fluid">
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarTogglerDemo01" aria-controls="navbarTogglerDemo01" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarTogglerDemo01">
+                <div class="me-3">
+                    <a class="navbar-brand" href="/">
+                        <img src="/public/assets/images/ai.png" alt="" width="30" height="30">
+                    </a>
+                </div>
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                    <li class="nav-item">
+                        <a class="nav-link {% if app.request.get('_route') == 'gpt_request_page' %}active{% endif %}" href="/">GPT-Requester</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if app.request.get('_route') == 'gpt_search_page' %}active{% endif %}" href="/search">GPT-Searcher</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if app.request.get('_route') == 'gpt_summarize_page' %}active{% endif %}" href="/summarize">GPT-Summarizer</a>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" id="knowledgebase-dropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            Knowledgebase
+                        </a>
+                        <ul class="dropdown-menu" aria-labelledby="knowledgebase-dropdown">
+                            <li class="nav-item">
+                                <a class="nav-link {% if app.request.get('_route') == 'knowledgebase_data_upload_page' %}active{% endif %}" href="/knowledgebase/data/upload">Data Upload</a>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li class="nav-item">
+                                <a class="nav-link {% if app.request.get('_route') == 'knowledgebase_articles' %}active{% endif %}" href="/knowledgebase/articles">Articles</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {% if app.request.get('_route') == 'knowledgebase_templates' %}active{% endif %}" href="/knowledgebase/templates">Templates</a>
+                            </li>
+                        </ul>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if app.request.get('_route') == 'gpt_request_history_rows' %}active{% endif %}" href="/gpt/request/history">GPT Request History</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</nav>
+{% endblock %}

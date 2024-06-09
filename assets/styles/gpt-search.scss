@@ -1,0 +1,26 @@
+body {
+  background-color: #f9f9f9;
+}
+
+.response {
+  background-color: white;
+}
+
+.form-control:focus {
+  outline: 0 !important;
+  border-color: initial;
+  box-shadow: none;
+}
+
+.btn-pos {
+  position:relative;
+  z-index:1;
+  left: -36px;
+}
+
+.gpt_response_wrapper {
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  height: calc(90vh - 250px);
+}

@@ -1,0 +1,48 @@
+{% extends 'base.html.twig' %}
+
+{% block stylesheets %}
+    {{ parent() }}
+{% endblock %}
+
+{% block body %}
+<div class="container p-3">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card">
+                <div class="card-body">
+                    <h2 class="card-title">{{ "GptRequestHistory##{gptRequestHistory.Id}" }}</h2>
+                    <p class="card-text text-muted">{{ gptRequestHistory.Datetime|date("F jS, Y | g:ia") }}</p>
+                    <p class="card-text">Model: <b>{{ gptRequestHistory.model }}</b></p>
+                    <p class="card-text m-0">Prompt Tokens: {{ gptRequestHistory.promptTokens }}</p>
+                    <p class="card-text m-0">Completion Tokens: {{ gptRequestHistory.completionTokens }}</p>
+                    <p class="card-text m-0">Total Tokens: {{ gptRequestHistory.totalTokens }}</p>
+                    <hr>
+                    <div class="card my-3">
+                        <h5 class="card-header">System Message</h5>
+                        <div class="card-body">
+                            <p class="card-text">{{ gptRequestHistory.systemMessage|nl2br }}</p>
+                        </div>
+                    </div>
+                    <div class="card my-3">
+                        <h5 class="card-header">User Message</h5>
+                        <div class="card-body">
+                            <p class="card-text">{{ gptRequestHistory.userMessage|nl2br }}</p>
+                        </div>
+                    </div>
+                    <div class="card my-3">
+                        <h5 class="card-header">Assistant Message</h5>
+                        <div class="card-body">
+                            <p class="card-text">{{ gptRequestHistory.assistantMessage|nl2br }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+{% endblock %}
+
