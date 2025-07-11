@@ -2,22 +2,34 @@
 
 namespace App\Controller;
 
+use App\Entity\Article;
+use App\Entity\ArticleParagraph;
+use App\Entity\CloudflareIndex;
+use App\Entity\GptAssistantOption;
 use App\Entity\GptRequestOption;
 use App\Entity\GptSearchOption;
 use App\Entity\GptSummarizeOption;
 use App\Entity\Message;
+use App\Entity\Template;
 use App\Message\Vectorize;
+use App\Repository\CloudflareIndexRepository;
+use App\Repository\GptAssistantOptionRepository;
 use App\Repository\GptRequestHistoryRepository;
 use App\Repository\GptRequestOptionRepository;
 use App\Repository\GptSearchOptionRepository;
 use App\Repository\GptSummarizeOptionRepository;
 use App\Repository\MessageRepository;
 use App\Service\Gpt\AIService;
+use App\Service\Gpt\CloudflareClient;
+use App\Service\Gpt\GeminiClient;
+use App\Service\Gpt\OpenAIClient;
+use App\Service\Gpt\Request\GptAssistantRequest;
 use App\Service\Gpt\Request\GptEmbeddingRequest;
 use App\Service\Gpt\Request\GptKnowledgebaseRequest;
 use App\Service\Gpt\Request\GptQuestionRequest;
 use App\Service\Gpt\Response\GptResponse;
 use App\Service\Gpt\Request\GptSummarizeRequest;
+use App\Service\Gpt\YandexGptClient;
 use App\Service\OpenAI\Tokenizer\Tokenizer;
 use App\Service\VectorSearch\RedisSearcher;
 use App\Validator\EntityExist;
@@ -59,9 +71,13 @@ class AppController extends AbstractController
     private $gptModel = 'gpt-3.5-turbo';
     private $gptTemperature = 1;
     private $gptMaxTokens = 2000;
-    private $gptTokenLimit = 1500;
+    private $gptTokenLimit = 2000;
     private $gptFrequencyPenalty = 0;
     private $gptPresencePenalty = 0;
+    private $gptResponseFormatType = 'text';
+    private $gptResponseContentType = 'text/plain';
+    private $gptTopP = 0.95;
+    private $gptTopK = 5;
 
     /* Gpt Embedding default options */
     private $gptEmbeddingModel = 'text-embedding-3-small';
@@ -88,29 +104,52 @@ class AppController extends AbstractController
         $this->logger = $logger;
     }
 
-    public function gptRequestPage(GptRequestOptionRepository $gptRequestOptionRepository) : Response
+    public function gptRequestPage(GptRequestOptionRepository $gptRequestOptionRepository): Response
     {
-        $requestOption = $gptRequestOptionRepository->findOneBy(['gptService' => 'openai']) ?? new GptRequestOption();
+        $requestOption = $gptRequestOptionRepository->findOneBy([]) ?? new GptRequestOption();
 
         return $this->render('app/request.html.twig', [
             'title' => 'GPT-Requester',
-            'requestOption' => $requestOption
+            'aiServices' => AIService::list(),
+            'requestOption' => $requestOption,
+            'openaiModels' => (new \App\Service\OpenAI\Client(''))->models(),
+            'yandexGptModels' => (new \App\Service\YandexGpt\Client(''))->models(),
+            'geminiModels' => (new \App\Service\Gemini\Client(''))->models(),
         ]);
     }
 
-    public function gptSearchPage(GptSearchOptionRepository $gptSearchOptionRepository) : Response
+    public function gptAssistantPage(GptAssistantOptionRepository $gptAssistantOptionRepository): Response
     {
-        $searchOption = $gptSearchOptionRepository->findOneBy(['gptService' => 'openai']) ?? new GptSearchOption();
+        $assistantOption = $gptAssistantOptionRepository->findOneBy([]) ?? new GptAssistantOption();
+
+        return $this->render('app/assistant.html.twig', [
+            'title' => 'GPT-Assistant',
+            'aiServices' => AIService::list(),
+            'assistantOption' => $assistantOption,
+            'openaiModels' => (new \App\Service\OpenAI\Client(''))->models(),
+            'yandexGptModels' => (new \App\Service\YandexGpt\Client(''))->models(),
+            'geminiModels' => (new \App\Service\Gemini\Client(''))->models(),
+        ]);
+    }
+
+    public function gptSearchPage(GptSearchOptionRepository $gptSearchOptionRepository, CloudflareIndexRepository $cloudflareIndexRepository): Response
+    {
+        $searchOption = $gptSearchOptionRepository->findOneBy([]) ?? new GptSearchOption();
 
         return $this->render('app/search.html.twig', [
             'title' => 'GPT-Searcher',
-            'searchOption' => $searchOption
+            'searchOption' => $searchOption,
+            'openaiGptModels' => (new \App\Service\OpenAI\Client(''))->models(),
+            'openaiEmbeddingsModels' => ['text-embedding-3-small', 'text-embedding-3-large', 'text-embedding-ada-002'],
+            'cloudflareGptModels' => (new \App\Service\Cloudflare\WorkersAI\Client('', ''))->getTextGenerationModels(),
+            'cloudflareEmbeddingsModels' => (new \App\Service\Cloudflare\WorkersAI\Client('', ''))->getTextEmbeddingsModels(),
+            'cloudflareIndexes' => $cloudflareIndexRepository->findAll()
         ]);
     }
 
-    public function gptSummarizePage(MessageRepository $messageRepository, GptSummarizeOptionRepository $gptSummarizeOptionRepository) : Response
+    public function gptSummarizePage(MessageRepository $messageRepository, GptSummarizeOptionRepository $gptSummarizeOptionRepository): Response
     {
-        $summarizeOption = $gptSummarizeOptionRepository->findOneBy(['gptService' => 'openai']) ?? new GptSummarizeOption();
+        $summarizeOption = $gptSummarizeOptionRepository->findOneBy([]) ?? new GptSummarizeOption();
         $messages = $messageRepository->findAll();
 
         return $this->render('app/summarize.html.twig', [
@@ -131,7 +170,9 @@ class AppController extends AbstractController
         $request->request->add($this->carriageReturnFix($request->request->all()));
 
         try {
-            $errors = $this->validateGptRequest($this->validator, $request->request->all());
+            $gptService = $request->request->get('gpt_service', 'openai');
+
+            $errors = $this->validateGptRequest($this->validator, $gptService, $request->request->all());
 
             if(count($errors) > 0) {
                 $messages = [];
@@ -142,16 +183,20 @@ class AppController extends AbstractController
                 throw new Exception('Validation failed: '. implode(' ', $messages));
             }
 
-            $gptService = $request->request->get('gpt_service');
-            $raw = $request->request->get('raw');
             $gptApiKey = $request->request->get('gpt_api_key');
+            $gptFolderId = $request->request->get('gpt_folder_id');
             $gptModel = $request->request->get('gpt_model', $this->gptModel);
             $gptTemperature = $request->request->get('gpt_temperature', $this->gptTemperature);
             $gptMaxTokens = $request->request->get('gpt_max_tokens', $this->gptMaxTokens);
             $gptTokenLimit = $request->request->get('gpt_token_limit', $this->gptTokenLimit);
             $gptFrequencyPenalty = $request->request->get('gpt_frequency_penalty', $this->gptFrequencyPenalty);
             $gptPresencePenalty = $request->request->get('gpt_presence_penalty', $this->gptPresencePenalty);
+            $gptResponseFormatType = $request->request->get('gpt_response_format_type', $this->gptResponseFormatType);
+            $gptResponseContentType = $request->request->get('gpt_response_content_type', $this->gptResponseContentType);
+            $gptTopP = $request->request->get('gpt_top_p', $this->gptTopP);
+            $gptTopK = $request->request->get('gpt_top_k', $this->gptTopK);
 
+            $raw = $request->request->get('raw');
             $entryTemplate = $request->request->get('entry_template');
             $clientMessage = $request->request->get('client_message');
             $clientMessageTemplate = $request->request->get('client_message_template');
@@ -166,45 +211,157 @@ class AppController extends AbstractController
 
             $gptQuestionRequest = (new GptQuestionRequest())
                 ->setApiKey($gptApiKey)
+                ->setFolderId($gptFolderId)
                 ->setModel($gptModel)
                 ->setTemperature($gptTemperature)
                 ->setMaxTokens($gptMaxTokens)
                 ->setTokenLimit($gptTokenLimit)
                 ->setFrequencyPenalty($gptFrequencyPenalty)
                 ->setPresencePenalty($gptPresencePenalty)
+                ->setResponseFormatType($gptResponseFormatType)
+                ->setResponseContentType($gptResponseContentType)
+                ->setTopP($gptTopP)
+                ->setTopK($gptTopK)
                 ->setClientMessage($clientMessage)
                 ->setLists($lists, $listsValues)
                 ->setCheckboxes($checkboxes)
                 ->setSystemMessage($systemMessage);
 
-            if($entryTemplate) {
-                $gptQuestionRequest->setEntryTemplate($entryTemplate);
-            }
-
-            if($listsMessageTemplate) {
-                $gptQuestionRequest->setListsMessageTemplate($listsMessageTemplate);
-            }
-
-            if($checkboxesMessageTemplate) {
-                $gptQuestionRequest->setCheckboxesMessageTemplate($checkboxesMessageTemplate);
-            }
-
-            if($clientMessageTemplate) {
-                $gptQuestionRequest->setClientMessageTemplate($clientMessageTemplate);
-            }
-
-            if($raw) {
-                $gptQuestionRequest->setRaw($raw);
-            }
+            if($entryTemplate) { $gptQuestionRequest->setEntryTemplate($entryTemplate); }
+            if($listsMessageTemplate) { $gptQuestionRequest->setListsMessageTemplate($listsMessageTemplate); }
+            if($checkboxesMessageTemplate) { $gptQuestionRequest->setCheckboxesMessageTemplate($checkboxesMessageTemplate); }
+            if($clientMessageTemplate) { $gptQuestionRequest->setClientMessageTemplate($clientMessageTemplate); }
+            if($raw) { $gptQuestionRequest->setRaw($raw); }
 
             $gptQuestionRequest->preparePrompt();
 
             $gptResponses = $this->AIService->questionChatRequest($gptService, $gptQuestionRequest);
 
             return new JsonResponse($gptResponses);
+        } catch (Exception $e) {
+
+            $requestParameters = $request->request->all();
+            unset($requestParameters['gpt_api_key']);
+
+            $this->logger->error(json_encode([
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'request' => $requestParameters
+            ], 1));
+
+            return new JsonResponse([
+                'error' => $e->getMessage(),
+            ], 400);
+        }
+    }
+
+    public function assistantList(Request $request)
+    {
+        try {
+            $constraintViolation = function(ValidatorInterface $validator, array $haystack):ConstraintViolationListInterface {
+                $constraints = [new Collection([
+                    'allowExtraFields' => false,
+                    'fields' => [
+                        'gpt_api_key' => [new Type(['type' => 'string'])],
+                        'gpt_service' => [new Choice(AIService::list())]
+                    ],
+                ])];
+
+                return $validator->validate($haystack, $constraints);
+            };
+
+            $errors = $constraintViolation($this->validator, $request->request->all());
+
+            if(count($errors) > 0) {
+                $messages = [];
+                foreach ($errors as $violation) {
+                    $messages[] = $violation->getPropertyPath().': '.$violation->getMessage();
+                }
+
+                throw new Exception('Validation failed: '. implode(' ', $messages));
+            }
+
+            $gptService = $request->request->get('gpt_service');
+            $gptApiKey = $request->request->get('gpt_api_key');
+
+            $response = $this->AIService->assistantList($gptService, $gptApiKey);
+
+            return new JsonResponse($response);
         }
         catch (Exception $e) {
 
+            $requestParameters = $request->request->all();
+            unset($requestParameters['gpt_api_key']);
+
+            $this->logger->error(json_encode([
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'request' => $requestParameters
+            ], 1));
+
+            return new JsonResponse([
+                'error' => $e->getMessage(),
+            ], 400);
+        }
+    }
+
+    /**
+     * @param Request $request
+     * @return JsonResponse
+     * @throws Exception
+     */
+    public function assistantRequest(Request $request)
+    {
+        // Carriage return "\r" fix
+        $request->request->add($this->carriageReturnFix($request->request->all()));
+
+        try {
+            $gptService = $request->request->get('gpt_service', 'openai');
+
+            $errors = $this->validateAssistantRequest($this->validator, $gptService, $request->request->all());
+            if(count($errors) > 0) {
+                $messages = [];
+                foreach ($errors as $violation) {
+                    $messages[] = $violation->getPropertyPath().': '.$violation->getMessage();
+                }
+
+                throw new Exception('Validation failed: '. implode(' ', $messages));
+            }
+
+            $gptApiKey = $request->request->get('gpt_api_key');
+            $gptAssistantId = $request->request->get('gpt_assistant_id');
+            $gptModel = $request->request->get('gpt_model');
+            $gptTemperature = $request->request->get('gpt_temperature');
+            $gptTopP = $request->request->get('gpt_top_p');
+            //$gptMaxTokens = $request->request->get('gpt_max_tokens', $this->gptMaxTokens);
+            //$gptTokenLimit = $request->request->get('gpt_token_limit', $this->gptTokenLimit);
+            $raw = $request->request->get('raw');
+            $instructions = $request->request->get('instructions');
+            $clientMessage = $request->request->get('client_message');
+            $clientMessageTemplate = $request->request->get('client_message_template');
+
+            // Assistant request
+
+            $gptAssistantRequest = (new GptAssistantRequest())
+                ->setApiKey($gptApiKey)
+                ->setAssistantId($gptAssistantId)
+                ->setClientMessage($clientMessage);
+                //->setTokenLimit($gptTokenLimit)
+                //->setMaxTokens($gptMaxTokens);
+
+            if ($clientMessageTemplate) { $gptAssistantRequest->setClientMessageTemplate($clientMessageTemplate); }
+            if ($gptModel) { $gptAssistantRequest->setModel($gptModel); }
+            if ($gptTemperature) { $gptAssistantRequest->setModel($gptTemperature); }
+            if ($gptTopP) { $gptAssistantRequest->setModel($gptTopP); }
+            if ($instructions) { $gptAssistantRequest->setInstructions($instructions); }
+            if ($raw) { $gptAssistantRequest->setRaw($raw); }
+
+            $gptAssistantRequest->preparePrompt();
+            $gptAssistantResponse = $this->AIService->assistantRequest($gptService, $gptAssistantRequest);
+
+            return new JsonResponse($gptAssistantResponse);
+
+        } catch (Exception $e) {
             $requestParameters = $request->request->all();
             unset($requestParameters['gpt_api_key']);
 
@@ -227,13 +384,22 @@ class AppController extends AbstractController
     public function vectorize(Request $request)
     {
         try {
-            $constraintViolation = function(ValidatorInterface $validator, array $haystack) : ConstraintViolationListInterface {
+            $constraintViolation = function(ValidatorInterface $validator, array $haystack):ConstraintViolationListInterface {
                 $constraints = [new Collection([
                     'allowExtraFields' => false,
                     'fields' => [
+                        'account_id' => [new Optional([new Type(['type' => 'string'])])],
                         'gpt_api_key' => [new Optional([new Type(['type' => 'string'])])],
-                        'gpt_service' => [new Choice(['openai', 'yandex-gpt'])],
+                        'gpt_service' => [new Choice(AIService::list())],
                         'gpt_embedding_model' => [new Optional([new Type(['type' => 'string'])])],
+                        'index'=> [new Optional([ /*new Expression([
+                            'expression' => 'gpt_service == cloudflare_service && null != value',
+                            'values' => [
+                                'gpt_service' => $haystack['gpt_service'],
+                                'cloudflare_service' => CloudflareClient::SERVICE
+                            ],
+                            'message' => 'Field is required when GPT-Service is "[cloudflare_service]"',
+                        ]),*/ new EntityExist(CloudflareIndex::class, 'name')])],
                         'gpt_max_tokens_per_chunk' => [new Optional([new Type(['type' => 'numeric'])])],
                     ],
                 ])];
@@ -253,11 +419,13 @@ class AppController extends AbstractController
             }
 
             $gptService = $request->request->get('gpt_service');
+            $accountId = $request->request->get('account_id');
             $gptApiKey = $request->request->get('gpt_api_key');
             $gptEmbeddingModel = $request->request->get('gpt_embedding_model', $this->gptEmbeddingModel);
+            $index = $request->request->get('index');
             $gptMaxTokensPerChunk = $request->request->get('gpt_max_tokens_per_chunk', $this->gptMaxTokensPerChunk);
 
-            $this->bus->dispatch(new Vectorize($gptService, $gptApiKey, $gptEmbeddingModel, $gptMaxTokensPerChunk));
+            $this->bus->dispatch(new Vectorize($gptService, $accountId, $gptApiKey, $gptEmbeddingModel, $index, $gptMaxTokensPerChunk));
 
             return new JsonResponse([
                 'success' => true,
@@ -293,14 +461,16 @@ class AppController extends AbstractController
         $request->request->add($this->carriageReturnFix($request->request->all()));
 
         try {
-            $constraintViolation = function(ValidatorInterface $validator, array $haystack) : ConstraintViolationListInterface {
+            $constraintViolation = function(ValidatorInterface $validator, array $haystack):ConstraintViolationListInterface {
                 $constraints = [new Collection([
                     'allowExtraFields' => false,
                     'fields' => [
-                        'gpt_api_key' => [new Optional([new Type(['type' => 'string'])])],
-                        'gpt_service' => [new Choice(['openai', 'yandex-gpt'])],
+                        'gpt_api_key' => [new Type(['type' => 'string'])],
+                        'account_id' => [new Optional([new Type(['type' => 'string'])])],
+                        'gpt_service' => [new Choice(AIService::list())],
                         'gpt_embedding_model' => [new Optional([new Type(['type' => 'string'])])],
                         'gpt_model' => [new Optional([new Type(['type' => 'string'])])],
+                        'index'=> [(CloudflareClient::SERVICE === $haystack['gpt_service']) ? new EntityExist(CloudflareIndex::class, 'name') : new Optional([new Type(['type' => 'string'])])],
                         'gpt_temperature' => [new Optional([new Type(['type' => 'numeric']), new Range(['min' => 0, 'max' => 2])])],
                         'gpt_max_tokens' => [new Optional([new Type(['type' => 'numeric'])])],
                         'gpt_token_limit' => [new Optional([new Type(['type' => 'numeric'])])],
@@ -330,12 +500,15 @@ class AppController extends AbstractController
 
             $gptService = $request->request->get('gpt_service');
             $gptApiKey = $request->request->get('gpt_api_key');
+            $accountId = $request->request->get('account_id');
             $gptEmbeddingModel = $request->request->get('gpt_embedding_model', $this->gptEmbeddingModel);
             $gptModel = $request->request->get('gpt_model', $this->gptModel);
+            $index = $request->request->get('index');
             $gptTemperature = $request->request->get('gpt_temperature', $this->gptTemperature);
             $gptMaxTokens = $request->request->get('gpt_max_tokens', $this->gptMaxTokens);
             $gptFrequencyPenalty = $request->request->get('gpt_frequency_penalty', $this->gptFrequencyPenalty);
             $gptPresencePenalty = $request->request->get('gpt_presence_penalty', $this->gptPresencePenalty);
+            $gptResponseFormatType = $request->request->get('gpt_response_format_type', $this->gptResponseFormatType);
 
             $vectorSearchResultCount = $request->request->get('vector_search_result_count', 2);
             $vectorSearchDistanceLimit = $request->request->get('vector_search_distance_limit', 0.99);
@@ -348,17 +521,26 @@ class AppController extends AbstractController
 
             $promptEmbeddingRequest = (new GptEmbeddingRequest())
                 ->setApiKey($gptApiKey)
+                ->setAccountId($accountId)
                 ->setModel($gptEmbeddingModel)
+                ->setIndex($index)
                 ->setPrompt($question);
 
             $promptEmbedding = $this->AIService->embedding($gptService, $promptEmbeddingRequest);
-            $searchResult = $this->redisSearcher->search($promptEmbedding->embedding, $vectorSearchResultCount, $vectorSearchDistanceLimit);
+            $searchResult = $this->AIService->search($gptService, $promptEmbeddingRequest, $promptEmbedding, $vectorSearchResultCount, $vectorSearchDistanceLimit);
 
+            /**
+             * Already involved in content Article Paragraphs
+             * @var array $articleParagraphIdCollection
+             */
+            $articleParagraphIdCollection = [];
+
+            /** @var string|null $content */
             $content = null;
 
             foreach ($searchResult as $key => &$searchResponse) {
                 switch($searchResponse->type) {
-                    case 'article':
+                    case Article::TYPE:
                         $qb = $entityManager->createQueryBuilder();
                         $qb->select('a')
                             ->from('App\Entity\Article', 'a')
@@ -368,14 +550,19 @@ class AppController extends AbstractController
                                 'id' => $searchResponse->id
                             ]);
 
+                        /** @var Article $article */
                         $article = $qb->getQuery()->getOneOrNullResult();
 
-                        if(!$article) {
-                            unset($searchResult[$key]);
+                        /** @var ArticleParagraph $articleParagraph */
+                        $articleParagraph = $article ? $article->getParagraphs()->first() : null;
+
+                        if(!$article || !$articleParagraph || in_array($articleParagraph->getId(), $articleParagraphIdCollection)) {
+                            //unset($searchResult[$key]);
                             break;
                         }
 
-                        $content .= $article->getArticleContent().PHP_EOL;
+                        //$content .= $article->getArticleContent().PHP_EOL;
+                        $content .= $articleParagraph->getParagraphContent();
 
                         $articleJson = $this->serializer->serialize($article, 'json', [
                             AbstractNormalizer::ATTRIBUTES => [
@@ -398,7 +585,7 @@ class AppController extends AbstractController
 
                         break;
 
-                    case 'article_paragraph':
+                    case ArticleParagraph::TYPE:
                         $qb = $entityManager->createQueryBuilder();
                         $qb->select('ap')
                             ->from('App\Entity\ArticleParagraph', 'ap')
@@ -409,10 +596,11 @@ class AppController extends AbstractController
                                 'id' => $searchResponse->id
                             ]);
 
+                        /** @var ArticleParagraph $articleParagraph */
                         $articleParagraph = $qb->getQuery()->getOneOrNullResult();
 
-                        if(!$articleParagraph) {
-                            unset($searchResult[$key]);
+                        if(!$articleParagraph || in_array($articleParagraph->getId(), $articleParagraphIdCollection)) {
+                            //unset($searchResult[$key]);
                             break;
                         }
 
@@ -437,7 +625,7 @@ class AppController extends AbstractController
 
                         break;
 
-                    case 'template':
+                    case Template::TYPE:
                         $qb = $entityManager->createQueryBuilder();
                         $qb->select('t')
                             ->from('App\Entity\Template', 't')
@@ -449,7 +637,7 @@ class AppController extends AbstractController
                         $template = $qb->getQuery()->getOneOrNullResult();
 
                         if(!$template) {
-                            unset($searchResult[$key]);
+                            //unset($searchResult[$key]);
                             break;
                         }
 
@@ -475,11 +663,13 @@ class AppController extends AbstractController
 
             $gptKnowledgebaseRequest = (new GptKnowledgebaseRequest())
                 ->setApiKey($gptApiKey)
+                ->setAccountId($accountId)
                 ->setModel($gptModel)
                 ->setTemperature($gptTemperature)
                 ->setMaxTokens($gptMaxTokens)
                 ->setFrequencyPenalty($gptFrequencyPenalty)
                 ->setPresencePenalty($gptPresencePenalty)
+                ->setResponseFormatType($gptResponseFormatType)
 
                 ->setSystemMessage($systemMessage)
                 ->setQuestion($question)
@@ -496,7 +686,7 @@ class AppController extends AbstractController
             $embeddingLogger->debug('Search Result: '.json_encode($searchResult));
             $embeddingLogger->debug('Request Object: '.json_encode($gptKnowledgebaseRequest));
             $embeddingLogger->debug('Response Object: '.json_encode($gptResponse));
-            $embeddingLogger->debug('');
+            $embeddingLogger->debug('---');
 
             return new JsonResponse([
                 'gpt_response' => $gptResponse,
@@ -527,12 +717,12 @@ class AppController extends AbstractController
     public function summarize(Request $request, MessageRepository $messageRepository)
     {
         try {
-            $constraintViolation = function(ValidatorInterface $validator, array $haystack) : ConstraintViolationListInterface {
+            $constraintViolation = function(ValidatorInterface $validator, array $haystack):ConstraintViolationListInterface {
                 $constraints = [new Collection([
                     'allowExtraFields' => false,
                     'fields' => [
-                        'gpt_api_key' => [new Optional([new Type(['type' => 'string'])])],
-                        'gpt_service' => [new Choice(['openai', 'yandex-gpt'])],
+                        'gpt_api_key' => [new Type(['type' => 'string'])],
+                        'gpt_service' => [new Choice(AIService::list())],
                         'gpt_model' => [new Optional([new Type(['type' => 'string'])])],
                         'gpt_temperature' => [new Optional([new Type(['type' => 'numeric']), new Range(['min' => 0, 'max' => 2])])],
                         'gpt_max_tokens' => [new Optional([new Type(['type' => 'numeric'])])],
@@ -649,23 +839,17 @@ class AppController extends AbstractController
 
     /**
      * @param ValidatorInterface $validator
+     * @param string $gptService
      * @param array $haystack
      * @return ConstraintViolationListInterface
      */
-    private function validateGptRequest(ValidatorInterface $validator, array $haystack) : ConstraintViolationListInterface
+    private function validateGptRequest(ValidatorInterface $validator, string $gptService, array $haystack):ConstraintViolationListInterface
     {
-        $constraints = [new Collection([
-            'allowExtraFields' => true,
-            'fields' => [
-                'gpt_api_key' => [new Optional([new Type(['type' => 'string'])])],
-                'gpt_service' => [new Choice(['openai', 'yandex-gpt'])],
-                'gpt_model' => [new Optional([new Type(['type' => 'string'])])],
-                'gpt_temperature' => [new Optional([new Type(['type' => 'numeric']), new Range(['min' => 0, 'max' => 2])])],
-                'gpt_max_tokens' => [new Optional([new Type(['type' => 'numeric'])])],
-                'gpt_token_limit' => [new Optional([new Type(['type' => 'numeric'])])],
-                'gpt_frequency_penalty' => [new Optional([new Type(['type' => 'numeric']), new Range(['min' => 0, 'max' => 2])])],
-                'gpt_presence_penalty' => [new Optional([new Type(['type' => 'numeric']), new Range(['min' => 0, 'max' => 2])])],
-                'raw' => [new Optional([new Json(), new Callback([
+        $raw = [];
+
+        switch ($gptService) {
+            case OpenAIClient::SERVICE:
+                $raw = [new Optional([new Json(), new Callback([
                     'callback' => function ($json, $context) use($validator) {
                         $haystack = json_decode($json, 1);
                         $constraints = [new Collection([
@@ -687,6 +871,10 @@ class AppController extends AbstractController
                                 'max_tokens' => [new Optional(new Type(['type' => 'integer']))],
                                 'frequency_penalty' => [new Optional(new Type(['type' => 'numeric']))],
                                 'presence_penalty' => [new Optional(new Type(['type' => 'numeric']))],
+                                'response_format' => [new Optional(new Collection([
+                                    'allowExtraFields' => false,
+                                    'fields' => ['type' => [new Optional([new Choice(['json_object', 'text'])])]],
+                                ]))],
                             ],
                         ])];
 
@@ -701,7 +889,123 @@ class AppController extends AbstractController
                             $context->buildViolation('JSON validation failed: '. implode(' ', $messages))->addViolation();
                         }
                     }
-                ])])],
+                ])])];
+
+                break;
+
+            case YandexGptClient::SERVICE:
+                $raw = [new Optional([new Json(), new Callback([
+                    'callback' => function ($json, $context) use($validator) {
+                        $haystack = json_decode($json, 1);
+                        $constraints = [new Collection([
+                            'allowExtraFields' => false,
+                            'fields' => [
+                                'modelUri' => [new Type(['type' => 'string'])],
+                                'completionOptions' => [
+                                    new Collection([
+                                        'allowExtraFields' => false,
+                                        'fields' => [
+                                            'stream' => [new Optional(new Type(['type' => 'boolean']))],
+                                            'temperature' => [new Optional(new Type(['type' => 'numeric']))],
+                                            'maxTokens' => [new Optional()]
+                                        ]
+                                    ])
+                                ],
+                                'messages' => [new All([
+                                    'constraints' => [
+                                        new Collection([
+                                            'allowExtraFields' => false,
+                                            'fields' => [
+                                                'role' => [new Choice(['system', 'user', 'assistant'])],
+                                                'text' => [new Type(['type' => 'string'])]
+                                            ]
+                                        ])
+                                    ],
+                                ])]
+                            ],
+                        ])];
+
+                        $errors = $validator->validate($haystack, $constraints);
+
+                        if(count($errors) > 0) {
+                            $messages = [];
+                            foreach ($errors as $violation) {
+                                $messages[] = $violation->getPropertyPath().': '.$violation->getMessage();
+                            }
+
+                            $context->buildViolation('JSON validation failed: '. implode(' ', $messages))->addViolation();
+                        }
+                    }
+                ])])];
+
+                break;
+
+            case GeminiClient::SERVICE:
+
+                $raw = [new Optional([new Json(), new Callback([
+                    'callback' => function ($json, $context) use($validator) {
+                        $haystack = json_decode($json, 1);
+                        $constraints = [new Collection([
+                            'allowExtraFields' => false,
+                            'fields' => [
+                                'model' => [new Type(['type' => 'string'])],
+                                'contents' => [new All([
+                                    'constraints' => [
+                                        new Collection([
+                                            'allowExtraFields' => false,
+                                            'fields' => [
+                                                'role' => [new Choice(['system', 'user', 'assistant'])],
+                                                'parts' => [new Collection([
+                                                    'allowExtraFields' => false,
+                                                    'fields' => [
+                                                        'text' => [new Type(['type' => 'string'])]
+                                                    ]
+                                                ])]
+                                            ]
+                                        ])
+                                    ],
+                                ])],
+                                'generationConfig' => [new Collection([
+                                    'allowExtraFields' => true,
+                                    'fields' => [
+                                        'responseMimeType' => [new Optional(new Type(['type' => 'string']))],
+                                        'temperature' => [new Optional(new Type(['type' => 'numeric']))],
+                                        'maxOutputTokens' => [new Optional(new Type(['type' => 'integer']))],
+                                        'topP' => [new Optional([new Type(['type' => 'numeric'])/*, new Range(['min' => 0, 'max' => 1000])*/])],
+                                        'topK' => [new Optional([new Type(['type' => 'integer'])/*, new Range(['min' => 0, 'max' => 1])*/])],
+                                    ],
+                                ])],
+                            ],
+                        ])];
+
+                        $errors = $validator->validate($haystack, $constraints);
+
+                        if(count($errors) > 0) {
+                            $messages = [];
+                            foreach ($errors as $violation) {
+                                $messages[] = $violation->getPropertyPath().': '.$violation->getMessage();
+                            }
+
+                            $context->buildViolation('JSON validation failed: '. implode(' ', $messages))->addViolation();
+                        }
+                    }
+                ])])];
+
+                break;
+        }
+
+        $constraints = [new Collection([
+            'allowExtraFields' => true,
+            'fields' => [
+                'gpt_api_key' => [new Type(['type' => 'string'])],
+                'gpt_service' => [new Choice(AIService::list())],
+                'gpt_model' => [new Optional([new Type(['type' => 'string'])])],
+                'gpt_temperature' => [new Optional([new Type(['type' => 'numeric']), new Range(['min' => 0, 'max' => 2])])],
+                'gpt_max_tokens' => [new Optional([new Type(['type' => 'numeric'])])],
+                'gpt_token_limit' => [new Optional([new Type(['type' => 'numeric'])])],
+                'gpt_frequency_penalty' => [new Optional([new Type(['type' => 'numeric']), new Range(['min' => 0, 'max' => 2])])],
+                'gpt_presence_penalty' => [new Optional([new Type(['type' => 'numeric']), new Range(['min' => 0, 'max' => 2])])],
+                'raw' => $raw,
                 'entry_template' => [new Optional(new Type(['type' => 'string']))],
                 'client_message' => [new Type(['type' => 'string'])],
                 'client_message_template' => [new Optional(new Type(['type' => 'string']))],
@@ -748,10 +1052,96 @@ class AppController extends AbstractController
     }
 
     /**
+     * @param ValidatorInterface $validator
+     * @param string $gptService
+     * @param array $haystack
+     * @return ConstraintViolationListInterface
+     */
+    private function validateAssistantRequest(ValidatorInterface $validator, string $gptService, array $haystack):ConstraintViolationListInterface
+    {
+        $raw = [];
+
+        switch ($gptService) {
+            case OpenAIClient::SERVICE:
+                $raw = [new Optional([new Json(), new Callback([
+                    'callback' => function ($json, $context) use($validator) {
+                        $haystack = json_decode($json, 1);
+                        $constraints = [new Collection([
+                            'allowExtraFields' => false,
+                            'fields' => [
+                                'assistant_id' => [new Type(['type' => 'string'])],
+                                'model' => [new Optional([new Type(['type' => 'string'])])],
+                                'instructions' => [new Optional([new Type(['type' => 'string'])])],
+                                'thread' => [new Collection([
+                                    'allowExtraFields' => false,
+                                    'fields' => [
+                                        'messages' => [new All([
+                                            'constraints' => [new Collection([
+                                                'allowExtraFields' => false,
+                                                'fields' => [
+                                                    'role' => [new Choice(['system', 'user', 'assistant'])],
+                                                    'content' => [new Type(['type' => 'string'])]
+                                                ]
+                                            ])]
+                                        ])]
+                                    ]
+                                ])],
+                                'temperature' => [new Optional(new Type(['type' => 'numeric']))],
+                                'top_p' => [new Optional(new Type(['type' => 'numeric']))],
+                                'max_prompt_tokens' => [new Optional(new Type(['type' => 'integer']))],
+                                'max_completion_tokens' => [new Optional(new Type(['type' => 'integer']))],
+                                'response_format' => [new Optional(new Collection([
+                                    'allowExtraFields' => false,
+                                    'fields' => ['type' => [new Optional([new Choice(['json_object', 'text'])])]],
+                                ]))],
+                            ],
+                        ])];
+
+                        $errors = $validator->validate($haystack, $constraints);
+
+                        if(count($errors) > 0) {
+                            $messages = [];
+                            foreach ($errors as $violation) {
+                                $messages[] = $violation->getPropertyPath().': '.$violation->getMessage();
+                            }
+
+                            $context->buildViolation('JSON validation failed: '. implode(' ', $messages))->addViolation();
+                        }
+                    }
+                ])])];
+
+                break;
+            case YandexGptClient::SERVICE:
+                break;
+            case GeminiClient::SERVICE:
+                break;
+        }
+
+        $constraints = [new Collection([
+            'allowExtraFields' => false,
+            'fields' => [
+                'gpt_api_key' => [new Type(['type' => 'string'])],
+                'gpt_service' => [new Choice(AIService::list())],
+                'gpt_model' => [new Optional([new Type(['type' => 'string'])])],
+                'gpt_temperature' => [new Optional([new Type(['type' => 'numeric']), new Range(['min' => 0, 'max' => 2])])],
+                'gpt_top_p' => [new Optional([new Type(['type' => 'numeric']), new Range(['min' => 0, 'max' => 1])])],
+                'gpt_assistant_id' => [new Type(['type' => 'string'])],
+                'raw' => $raw,
+                'instructions' => [new Optional([new Type(['type' => 'string'])])],
+                'client_message' => [new Type(['type' => 'string'])],
+                'client_message_template' => [new Optional(new Type(['type' => 'string']))],
+            ],
+        ])];
+
+        return $validator->validate($haystack, $constraints);
+    }
+
+
+    /**
      * @param array $haystack
      * @return array
      */
-    private function carriageReturnFix(array $haystack) : array
+    private function carriageReturnFix(array $haystack):array
     {
         $json = json_encode($haystack);
         $data = json_decode(str_replace('\r', '', $json), 1);

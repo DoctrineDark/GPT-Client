@@ -17,6 +17,11 @@ final class TemplateVectorize
     /**
      * @var string
      */
+    private $accountId;
+
+    /**
+     * @var string
+     */
     private $gptApiKey;
 
     /**
@@ -25,17 +30,24 @@ final class TemplateVectorize
     private $gptEmbeddingModel;
 
     /**
+     * @var string|null
+     */
+    private $index;
+
+    /**
      * @var int
      */
     private $gptMaxTokensPerChunk;
 
-    public function __construct(int $templateId, string $gptService, ?string $gptApiKey, string $gptEmbeddingModel, int $gptMaxTokensPerChunk)
+    public function __construct(int $templateId, string $gptService, ?string $accountId, ?string $gptApiKey, string $gptEmbeddingModel, ?string $index, int $gptMaxTokensPerChunk)
     {
+        $this->templateId = $templateId;
         $this->gptService = $gptService;
+        $this->accountId = $accountId;
         $this->gptApiKey = $gptApiKey;
         $this->gptEmbeddingModel = $gptEmbeddingModel;
+        $this->index = $index;
         $this->gptMaxTokensPerChunk = $gptMaxTokensPerChunk;
-        $this->templateId = $templateId;
     }
 
     /**
@@ -57,6 +69,14 @@ final class TemplateVectorize
     /**
      * @return string|null
      */
+    public function getAccountId() : ?string
+    {
+        return $this->accountId;
+    }
+
+    /**
+     * @return string|null
+     */
     public function getGptApiKey() : ?string
     {
         return $this->gptApiKey;
@@ -68,6 +88,14 @@ final class TemplateVectorize
     public function getGptEmbeddingModel() : string
     {
         return $this->gptEmbeddingModel;
+    }
+
+    /**
+     * @return string|null
+     */
+    public function getIndex(): ?string
+    {
+        return $this->index;
     }
 
     /**

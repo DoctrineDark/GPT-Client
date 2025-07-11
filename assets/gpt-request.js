@@ -1,5 +1,88 @@
 $(document).ready(function ()
 {
+    // Options form
+    var gptServiceElement = $('#gpt_service');
+    var gptService = gptServiceElement.val();
+
+    updateOptionsForm(gptService);
+
+    gptServiceElement.on('change', function () {
+        gptService = gptServiceElement.val();
+
+        updateOptionsForm(gptService);
+    });
+
+    function updateOptionsForm(gptService)
+    {
+        var openaiModelSelect = $('#openai_gpt_model');
+        var yandexGptModelSelect = $('#yandex_gpt_model');
+        var geminiGptModelSelect = $('#gemini_gpt_model');
+
+
+        var switchElementVisibility = function(e, bool) {
+            if(bool) {
+                e.removeClass('d-none');
+            }
+            else {
+                e.addClass('d-none');
+            }
+
+            e.attr('disabled', !bool);
+        };
+
+        switch (gptService) {
+            case 'yandex-gpt':
+                switchElementVisibility(openaiModelSelect, false);
+                switchElementVisibility(yandexGptModelSelect, true);
+                switchElementVisibility(geminiGptModelSelect, false);
+
+                $('.gpt-folder-id-group').removeClass('d-none');
+                $('.gpt-folder-id-group').find('input').attr('required', true);
+
+                $('#gpt_frequency_penalty').parent().addClass('d-none');
+                $('#gpt_presence_penalty').parent().addClass('d-none');
+
+                $('#gpt_top_p').parent().addClass('d-none');
+                $('#gpt_top_k').parent().addClass('d-none');
+                $('#gpt_response_content_type').parent().addClass('d-none');
+
+                break;
+
+            case 'gemini':
+                switchElementVisibility(openaiModelSelect, false);
+                switchElementVisibility(yandexGptModelSelect, false);
+                switchElementVisibility(geminiGptModelSelect, true);
+
+                $('.gpt-folder-id-group').addClass('d-none');
+                $('.gpt-folder-id-group').find('input').attr('required', false);
+
+                $('#gpt_frequency_penalty').parent().addClass('d-none');
+                $('#gpt_presence_penalty').parent().addClass('d-none');
+
+                $('#gpt_top_p').parent().removeClass('d-none');
+                $('#gpt_top_k').parent().removeClass('d-none');
+                $('#gpt_response_content_type').parent().removeClass('d-none');
+
+                break;
+
+            default:
+                switchElementVisibility(openaiModelSelect, true);
+                switchElementVisibility(yandexGptModelSelect, false);
+                switchElementVisibility(geminiGptModelSelect, false);
+
+                $('.gpt-folder-id-group').addClass('d-none');
+                $('.gpt-folder-id-group').find('input').attr('required', false);
+
+                $('#gpt_frequency_penalty').parent().removeClass('d-none');
+                $('#gpt_presence_penalty').parent().removeClass('d-none');
+
+                $('#gpt_top_p').parent().addClass('d-none');
+                $('#gpt_top_k').parent().addClass('d-none');
+                $('#gpt_response_content_type').parent().addClass('d-none');
+        }
+    }
+
+
     // Add new List
     $('.add_list').click(function() {
         var listsWrapper = $('.lists_wrapper');

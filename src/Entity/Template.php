@@ -3,6 +3,8 @@
 namespace App\Entity;
 
 use App\Repository\TemplateRepository;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
@@ -12,6 +14,8 @@ use Doctrine\ORM\Mapping as ORM;
  */
 class Template
 {
+    public const TYPE = 'template';
+
     /**
      * @ORM\Id
      * @ORM\GeneratedValue
@@ -35,6 +39,11 @@ class Template
     private $template_content;
 
     /**
+     * @ORM\OneToMany(targetEntity=CloudflareVector::class, mappedBy="template")
+     */
+    private $cloudflareVectors;
+
+    /**
      * @ORM\Column(type="datetime", nullable=true)
      */
     private $created_at;
@@ -43,6 +52,11 @@ class Template
      * @ORM\Column(type="datetime", nullable=true)
      */
     private $updated_at;
+
+    public function __construct()
+    {
+        $this->cloudflareVectors = new ArrayCollection();
+    }
 
     /**
      * On insert
@@ -126,6 +140,36 @@ class Template
     public function setUpdatedAt(?\DateTimeInterface $updated_at): self
     {
         $this->updated_at = $updated_at;
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, CloudflareVector>
+     */
+    public function getCloudflareVectors(): Collection
+    {
+        return $this->cloudflareVectors;
+    }
+
+    public function addCloudflareVector(CloudflareVector $cloudflareVector): self
+    {
+        if (!$this->cloudflareVectors->contains($cloudflareVector)) {
+            $this->cloudflareVectors[] = $cloudflareVector;
+            $cloudflareVector->setTemplate($this);
+        }
+
+        return $this;
+    }
+
+    public function removeCloudflareVector(CloudflareVector $cloudflareVector): self
+    {
+        if ($this->cloudflareVectors->removeElement($cloudflareVector)) {
+            // set the owning side to null (unless already changed)
+            if ($cloudflareVector->getTemplate() === $this) {
+                $cloudflareVector->setTemplate(null);
+            }
+        }
 
         return $this;
     }

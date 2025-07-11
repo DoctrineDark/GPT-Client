@@ -17,6 +17,11 @@ final class ArticleVectorize
     /**
      * @var string
      */
+    private $accountId;
+
+    /**
+     * @var string
+     */
     private $gptApiKey;
 
     /**
@@ -25,23 +30,30 @@ final class ArticleVectorize
     private $gptEmbeddingModel;
 
     /**
+     * @var string|null
+     */
+    private $index;
+
+    /**
      * @var int
      */
     private $gptMaxTokensPerChunk;
 
-    public function __construct(int $articleId, string $gptService, ?string $gptApiKey, string $gptEmbeddingModel, int $gptMaxTokensPerChunk)
+    public function __construct(int $articleId, string $gptService, ?string $accountId, ?string $gptApiKey, string $gptEmbeddingModel, ?string $index, int $gptMaxTokensPerChunk)
     {
+        $this->articleId = $articleId;
         $this->gptService = $gptService;
+        $this->accountId = $accountId;
         $this->gptApiKey = $gptApiKey;
         $this->gptEmbeddingModel = $gptEmbeddingModel;
+        $this->index = $index;
         $this->gptMaxTokensPerChunk = $gptMaxTokensPerChunk;
-        $this->articleId = $articleId;
     }
 
     /**
      * @return int
      */
-    public function getArticleId() : int
+    public function getArticleId(): int
     {
         return $this->articleId;
     }
@@ -49,7 +61,7 @@ final class ArticleVectorize
     /**
      * @return string
      */
-    public function getGptService() : string
+    public function getGptService(): string
     {
         return $this->gptService;
     }
@@ -57,7 +69,15 @@ final class ArticleVectorize
     /**
      * @return string|null
      */
-    public function getGptApiKey() : ?string
+    public function getAccountId(): ?string
+    {
+        return $this->accountId;
+    }
+
+    /**
+     * @return string|null
+     */
+    public function getGptApiKey(): ?string
     {
         return $this->gptApiKey;
     }
@@ -65,15 +85,23 @@ final class ArticleVectorize
     /**
      * @return string
      */
-    public function getGptEmbeddingModel() : string
+    public function getGptEmbeddingModel(): string
     {
         return $this->gptEmbeddingModel;
     }
 
     /**
+     * @return string|null
+     */
+    public function getIndex(): ?string
+    {
+        return $this->index;
+    }
+
+    /**
      * @return int
      */
-    public function getGptMaxTokensPerChunk() : int
+    public function getGptMaxTokensPerChunk(): int
     {
         return $this->gptMaxTokensPerChunk;
     }

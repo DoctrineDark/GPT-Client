@@ -4,6 +4,11 @@ gpt_request_page:
     controller: App\Controller\AppController::gptRequestPage
     methods: GET|HEAD
 
+gpt_assistant_page:
+    path: /assistant
+    controller: App\Controller\AppController::gptAssistantPage
+    methods: GET|HEAD
+
 gpt_search_page:
     path: /search
     controller: App\Controller\AppController::gptSearchPage
@@ -58,6 +63,16 @@ knowledgebase_template:
 gpt_request:
     path: /gpt/request
     controller: App\Controller\AppController::request
+    methods: POST
+
+gpt_assistant_list:
+    path: /gpt/assistant/list
+    controller: App\Controller\AppController::assistantList
+    methods: POST
+
+gpt_assistant_request:
+    path: /gpt/assistant/request
+    controller: App\Controller\AppController::assistantRequest
     methods: POST
 
 gpt_vectorize:
@@ -117,6 +132,11 @@ gpt_request_option_save:
     controller: App\Controller\GptRequestOptionController::save
     methods: POST
 
+gpt_assistant_option_save:
+    path: /gpt/assistant/option/save
+    controller: App\Controller\GptAssistantOptionController::save
+    methods: POST
+
 gpt_search_option_save:
     path: /gpt/search/option/save
     controller: App\Controller\GptSearchOptionController::save
@@ -138,7 +158,43 @@ knowledgebase_sections:
     controller: App\Controller\KnowledgebaseSectionController::index
     methods: GET|HEAD
 
+# Cloudflare Indexes
+cloudflare_indexes:
+    path: /cloudflare/indexes
+    controller: App\Controller\CloudflareIndexController::index
+    methods: GET|HEAD
+
+cloudflare_index_store:
+    path: /cloudflare/index
+    controller: App\Controller\CloudflareIndexController::store
+    methods: POST
+
+cloudflare_index_delete:
+    path: /cloudflare/index/{index}
+    controller: App\Controller\CloudflareIndexController::delete
+    methods: DELETE
+
+cloudflare_vectors:
+    path: /cloudflare/vectors
+    controller: App\Controller\CloudflareVectorController::index
+    methods: GET|HEAD
+
+#cloudflare_vector_delete:
+#    path: /cloudflare/index/{index}
+#    controller: App\Controller\CloudflareIndexController::delete
+#    methods: DELETE
+
 # Misc
 test_message:
     path: /test/message
     controller: App\Controller\TestController::testMessage
+
+test_cloudflare_embedding_store:
+    path: /test/cloudflare/embedding/store
+    controller: App\Controller\TestController::testCloudflareEmbeddingStore
+    methods: POST
+
+test_cloudflare_embedding_search:
+    path: /test/cloudflare/embedding/search
+    controller: App\Controller\TestController::testCloudflareEmbeddingSearch
+    methods: POST

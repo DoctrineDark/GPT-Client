@@ -5,25 +5,50 @@ namespace App\Service\Gpt\Request;
 class GptEmbeddingRequest
 {
     /** @var string|null */
+    private $accountId;
+
+    /** @var string|null */
     private $apiKey;
 
     /** @var string|null */
-    private $model = 'text-embedding-3-small';
+    private $model;
 
     /** @var string|null */
-    private $prompt;
+    private $index;
+
+    /** @var string */
+    private $prompt = '';
 
     /**
      * @return string|null
      */
-    public function getApiKey() : ?string
+    public function getAccountId(): ?string
+    {
+        return $this->accountId;
+    }
+
+    /**
+     * @param string|null $accountId
+     * @return self
+     */
+    public function setAccountId(?string $accountId)
+    {
+        $this->accountId = $accountId;
+
+        return $this;
+    }
+
+    /**
+     * @return string|null
+     */
+    public function getApiKey(): ?string
     {
         return $this->apiKey;
     }
 
     /**
      * @param string|null $apiKey
-     * @return $this
+     * @return self
      */
     public function setApiKey(?string $apiKey)
     {
@@ -33,16 +58,16 @@ class GptEmbeddingRequest
     }
 
     /**
-     * @return string|null
+     * @return string
      */
-    public function getPrompt() : ?string
+    public function getPrompt(): string
     {
         return $this->prompt;
     }
 
     /**
      * @param string $prompt
-     * @return $this
+     * @return self
      */
     public function setPrompt(string $prompt)
     {
@@ -61,11 +86,30 @@ class GptEmbeddingRequest
 
     /**
      * @param string $model
-     * @return GptEmbeddingRequest
+     * @return self
      */
-    public function setModel(string $model) : self
+    public function setModel(string $model): self
     {
         $this->model = $model;
+
+        return $this;
+    }
+
+    /**
+     * @return string|null
+     */
+    public function getIndex(): ?string
+    {
+        return $this->index;
+    }
+
+    /**
+     * @param string|null $index
+     * @return self
+     */
+    public function setIndex(?string $index)
+    {
+        $this->index = $index;
 
         return $this;
     }

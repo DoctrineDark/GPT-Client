@@ -3,6 +3,9 @@
 namespace App\Controller;
 
 use App\Entity\Article;
+use App\Entity\ArticleParagraph;
+use App\Entity\CloudflareVector;
+use App\Repository\CloudflareIndexRepository;
 use App\Service\VectorSearch\RedisSearcher;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Tools\Pagination\Paginator;
@@ -19,16 +22,19 @@ class ArticleController extends AbstractController
         $this->redisSearcher = $redisSearcher;
     }
 
-    public function index(EntityManagerInterface $entityManager, Request $request) : Response
+    public function index(EntityManagerInterface $entityManager, Request $request, CloudflareIndexRepository $cloudflareIndexRepository): Response
     {
-        $dql = 'select a from App\Entity\Article a';
-        $query = $entityManager->createQuery($dql)
-            ->setFirstResult(0)
-            ->setMaxResults(7);
+        $limit = max($request->get('limit', 50), 1);
+        $page = max($request->get('page', 1), 1);
+        //$index = $cloudflareIndexRepository->findOneBy(['name' => $request->get('index')]);
 
-        $limit = 50;
-        $page = $request->get('page', 1);
-        $paginator = new Paginator($query);
+        $qb = $entityManager->createQueryBuilder();
+        $qb->select('a')
+            ->from('App\Entity\Article', 'a');
+            //->join('a.paragraphs', 'ap')
+            //->join('ap.cloudflareVectors', 'cv');
+
+        $paginator = new Paginator($qb);
         $paginator->getQuery()
             ->setFirstResult($limit * ($page - 1))
             ->setMaxResults($limit);
@@ -42,15 +48,17 @@ class ArticleController extends AbstractController
             'total' => $total,
             'lastPage' => $lastPage,
             'page' => $page,
+            'cloudflareIndexes' => $cloudflareIndexRepository->findAll(),
         ]);
     }
 
-    public function show(Article $article) : Response
+    public function show(Article $article, CloudflareIndexRepository $cloudflareIndexRepository): Response
     {
         return $this->render('article/show.html.twig', [
             'title' => $article->getArticleTitle() ?? 'Article#'.$article->getId(),
             'article' => $article,
             'redisSearcher' => $this->redisSearcher,
+            'cloudflareIndexes' => $cloudflareIndexRepository->findAll(),
         ]);
     }
 }

@@ -14,13 +14,12 @@ class GptRequestHistoryController extends AbstractController
 {
     public function index(EntityManagerInterface $entityManager, Request $request): Response
     {
-        $dql = 'select r from App\Entity\GptRequestHistory r ORDER BY r.datetime DESC';
-        $query = $entityManager->createQuery($dql)
-            ->setFirstResult(0)
-            ->setMaxResults(7);
+        $limit = max($request->get('limit', 50), 1);
+        $page = max($request->get('page', 1), 1);
 
-        $limit = 50;
-        $page = $request->get('page', 1);
+        $dql = 'select r from App\Entity\GptRequestHistory r ORDER BY r.datetime DESC';
+        $query = $entityManager->createQuery($dql);
+
         $paginator = new Paginator($query);
         $paginator->getQuery()
             ->setFirstResult($limit * ($page - 1))

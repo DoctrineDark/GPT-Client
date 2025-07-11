@@ -14,6 +14,8 @@ use Doctrine\ORM\Mapping as ORM;
  */
 class Article
 {
+    public const TYPE = 'article';
+
     /**
      * @ORM\Id
      * @ORM\GeneratedValue
@@ -63,6 +65,11 @@ class Article
     private $active = true;
 
     /**
+     * @ORM\OneToMany(targetEntity=CloudflareVector::class, mappedBy="article")
+     */
+    private $cloudflareVectors;
+
+    /**
      * @ORM\Column(type="datetime", nullable=true)
      */
     private $created_at;
@@ -76,6 +83,7 @@ class Article
     public function __construct()
     {
         $this->paragraphs = new ArrayCollection();
+        $this->cloudflareVectors = new ArrayCollection();
     }
 
     /**
@@ -266,5 +274,35 @@ class Article
         }
 
         return $content;
+    }
+
+    /**
+     * @return Collection<int, CloudflareVector>
+     */
+    public function getCloudflareVectors(): Collection
+    {
+        return $this->cloudflareVectors;
+    }
+
+    public function addCloudflareVector(CloudflareVector $cloudflareVector): self
+    {
+        if (!$this->cloudflareVectors->contains($cloudflareVector)) {
+            $this->cloudflareVectors[] = $cloudflareVector;
+            $cloudflareVector->setArticle($this);
+        }
+
+        return $this;
+    }
+
+    public function removeCloudflareVector(CloudflareVector $cloudflareVector): self
+    {
+        if ($this->cloudflareVectors->removeElement($cloudflareVector)) {
+            // set the owning side to null (unless already changed)
+            if ($cloudflareVector->getArticle() === $this) {
+                $cloudflareVector->setArticle(null);
+            }
+        }
+
+        return $this;
     }
 }

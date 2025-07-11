@@ -5,6 +5,7 @@ namespace App\Controller;
 use App\Entity\Article;
 use App\Entity\ArticleParagraph;
 use App\Entity\Template;
+use App\Repository\CloudflareIndexRepository;
 use App\Service\VectorSearch\RedisSearcher;
 use Doctrine\ORM\EntityManager;
 use Doctrine\ORM\EntityManagerInterface;
@@ -46,10 +47,13 @@ class DataUploadController extends AbstractController
         $this->redisSearcher = $redisSearcher;
     }
 
-    public function index(): Response
+    public function index(CloudflareIndexRepository $cloudflareIndexRepository): Response
     {
         return $this->render('data_upload/index.html.twig', [
             'title' => 'Data Upload',
+            'openaiEmbeddingsModels' => ['text-embedding-3-small', 'text-embedding-3-large', 'text-embedding-ada-002'],
+            'cloudflareEmbeddingsModels' => (new \App\Service\Cloudflare\WorkersAI\Client('', ''))->getTextEmbeddingsModels(),
+            'cloudflareIndexes' => $cloudflareIndexRepository->findAll()
         ]);
     }
 
@@ -301,7 +305,7 @@ class DataUploadController extends AbstractController
      * @param string $templateParagraphContent
      * @return Template
      */
-    private function parseTemplate(EntityManagerInterface $entityManager, Template $template, string $templateParagraphContent) : Template
+    private function parseTemplate(EntityManagerInterface $entityManager, Template $template, string $templateParagraphContent): Template
     {
         $crawler = new Crawler($templateParagraphContent);
         $content = $crawler->text();

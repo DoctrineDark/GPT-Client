@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "a6989d4a63373110e82846c79d2f9996",
+    "content-hash": "a5208cd5e65a8f2715df1285b5b4aa53",
     "packages": [
         {
             "name": "composer/package-versions-deprecated",
@@ -7459,6 +7459,54 @@
                 }
             ],
             "time": "2022-08-02T15:47:23+00:00"
+        },
+        {
+            "name": "teariot/php-yandex-gpt",
+            "version": "1.1.1",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/TeaRiot/php-yandex-gpt.git",
+                "reference": "b517f0db19f3075633c392617452b67690c35d89"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/TeaRiot/php-yandex-gpt/zipball/b517f0db19f3075633c392617452b67690c35d89",
+                "reference": "b517f0db19f3075633c392617452b67690c35d89",
+                "shasum": ""
+            },
+            "require": {
+                "ext-curl": "*",
+                "ext-json": "*",
+                "ext-mbstring": "*",
+                "php": ">=7.0"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "TeaRiot\\YandexGpt\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "TeaRiot",
+                    "email": "teaRiot@yandex.ru"
+                }
+            ],
+            "description": "A PHP library for seamless interaction with Yandex GPT (Generative Pre-trained Transformer) API, providing text generation, tokenization, and embedding functionalities.",
+            "homepage": "https://github.com/TeaRiot/php-yandex-gpt",
+            "keywords": [
+                "Yandex GPT",
+                "yandex"
+            ],
+            "support": {
+                "issues": "https://github.com/TeaRiot/php-yandex-gpt/issues",
+                "source": "https://github.com/TeaRiot/php-yandex-gpt/tree/1.1.1"
+            },
+            "time": "2024-04-05T09:38:51+00:00"
         },
         {
             "name": "twig/extra-bundle",

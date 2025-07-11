@@ -73,6 +73,13 @@ class GptSearchOption
      */
     private $userMessageTemplate;
 
+    /**
+     * @ORM\OneToOne(targetEntity=CloudflareIndex::class)
+     */
+    private $cloudflareIndex;
+
+    /**/
+
     public function getId(): ?int
     {
         return $this->id;
@@ -206,6 +213,18 @@ class GptSearchOption
     public function setUserMessageTemplate(?string $userMessageTemplate): self
     {
         $this->userMessageTemplate = $userMessageTemplate;
+
+        return $this;
+    }
+
+    public function getCloudflareIndex(): ?CloudflareIndex
+    {
+        return $this->cloudflareIndex;
+    }
+
+    public function setCloudflareIndex(?CloudflareIndex $cloudflareIndex): self
+    {
+        $this->cloudflareIndex = $cloudflareIndex;
 
         return $this;
     }

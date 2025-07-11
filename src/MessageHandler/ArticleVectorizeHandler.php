@@ -2,52 +2,75 @@
 
 namespace App\MessageHandler;
 
+use App\Entity\Article;
+use App\Entity\ArticleParagraph;
+use App\Entity\CloudflareVector;
 use App\Message\ArticleVectorize;
 use App\Repository\ArticleRepository;
+use App\Repository\CloudflareIndexRepository;
+use App\Repository\CloudflareVectorRepository;
+use App\Service\Cloudflare\Vectorize\Client as VectorizeClient;
 use App\Service\Gpt\AIService;
+use App\Service\Gpt\CloudflareClient;
+use App\Service\Gpt\Exception\GptServiceException;
+use App\Service\Gpt\OpenAIClient;
 use App\Service\Gpt\Request\GptEmbeddingRequest;
 use App\Service\OpenAI\Tokenizer\Tokenizer;
 use App\Service\VectorSearch\Embedding;
 use App\Service\VectorSearch\RedisSearcher;
+use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Messenger\Handler\MessageHandlerInterface;
 
 final class ArticleVectorizeHandler implements MessageHandlerInterface
 {
+    private $entityManager;
     private $articleRepository;
+    private $cloudflareIndexRepository;
+    private $cloudflareVectorRepository;
     private $AIService;
     private $redisSearcher;
     private $tokenizer;
+    private $vectorizeClient;
     private $vectorizerLogger;
 
-    public function __construct(ArticleRepository $articleRepository, AIService $AIService, RedisSearcher $redisSearcher, Tokenizer $tokenizer, LoggerInterface $vectorizerLogger)
+    public function __construct(EntityManagerInterface $entityManager, ArticleRepository $articleRepository, CloudflareIndexRepository $cloudflareIndexRepository, CloudflareVectorRepository $cloudflareVectorRepository, AIService $AIService, RedisSearcher $redisSearcher, Tokenizer $tokenizer, VectorizeClient $vectorizeClient, LoggerInterface $vectorizerLogger)
     {
+        $this->entityManager = $entityManager;
         $this->articleRepository = $articleRepository;
+        $this->cloudflareIndexRepository = $cloudflareIndexRepository;
+        $this->cloudflareVectorRepository = $cloudflareVectorRepository;
         $this->AIService = $AIService;
         $this->redisSearcher = $redisSearcher;
         $this->tokenizer = $tokenizer;
+        $this->vectorizeClient = $vectorizeClient;
         $this->vectorizerLogger = $vectorizerLogger;
     }
 
     public function __invoke(ArticleVectorize $message)
     {
         try {
+            $articleId = $message->getArticleId();
             $gptService = $message->getGptService();
+            $accountId = $message->getAccountId();
             $gptApiKey = $message->getGptApiKey();
             $gptEmbeddingModel = $message->getGptEmbeddingModel();
+            $index = $message->getIndex();
+            $cloudflareIndex = $this->cloudflareIndexRepository->findOneBy(['name' => $index]);
             $gptMaxTokensPerChunk = $message->getGptMaxTokensPerChunk();
 
-            $article = $this->articleRepository->find($message->getArticleId());
+            $article = $this->articleRepository->find($articleId);
 
-            if($article) {
-                $articleId = $article->getId();
-                $articleKey = RedisSearcher::ROOT.RedisSearcher::DELIMITER.'articles'.RedisSearcher::DELIMITER.$articleId;
-                $articleTitle = $article->getArticleTitle();
-                $articleTitleEmbedding = null;
-                $articleContentEmbedding = null;
+            if(!$article) {
+                $this->vectorizerLogger->error('Article ID#'.$articleId.' not found');
+            }
 
-                // if Article key IS NOT exist
-                //if(!$this->redisSearcher->exists($articleKey)) {
+            switch ($gptService) {
+                case OpenAIClient::SERVICE:
+                    $articleKey = RedisSearcher::ROOT.RedisSearcher::DELIMITER.'articles'.RedisSearcher::DELIMITER.$articleId;
+                    $articleTitle = $article->getArticleTitle();
+                    $articleTitleEmbedding = null;
+                    $articleContentEmbedding = null;
 
                     /* Article title Embedding request */
                     if($articleTitle) {
@@ -62,7 +85,7 @@ final class ArticleVectorizeHandler implements MessageHandlerInterface
 
                     /* Store Article title Embedding */
                     $this->redisSearcher->setEmbedding(
-                        new Embedding($articleId, 'article', $articleTitleEmbedding, $articleContentEmbedding),
+                        new Embedding($articleId, Article::TYPE, $articleTitleEmbedding, $articleContentEmbedding),
                         $articleKey,
                         '$'
                     );
@@ -72,6 +95,7 @@ final class ArticleVectorizeHandler implements MessageHandlerInterface
 
                     $articleParagraphs = $article->getParagraphs();
 
+                    /** @var ArticleParagraph $articleParagraph */
                     foreach ($articleParagraphs as $articleParagraph) {
                         $articleParagraphId = $articleParagraph->getId();
                         $articleParagraphKey = RedisSearcher::ROOT.RedisSearcher::DELIMITER.'articles'.RedisSearcher::DELIMITER.$articleId.RedisSearcher::DELIMITER.'paragraphs'.RedisSearcher::DELIMITER.$articleParagraphId;
@@ -80,71 +104,141 @@ final class ArticleVectorizeHandler implements MessageHandlerInterface
                         $articleParagraphTitleEmbedding = null;
                         $articleParagraphContentEmbedding = null;
 
-                        // if ArticleParagraph key IS NOT exist
-                        //if(!$this->redisSearcher->exists($articleParagraphKey)) {
+                        /* ArticleParagraph title Embedding request */
+                        if($articleParagraphTitle) {
+                            $articleParagraphTitleGptEmbeddingRequest = (new GptEmbeddingRequest())
+                                ->setApiKey($gptApiKey)
+                                ->setModel($gptEmbeddingModel)
+                                ->setPrompt($articleParagraphTitle);
 
-                            /* ArticleParagraph title Embedding request */
-                            if($articleParagraphTitle) {
-                                $articleParagraphTitleGptEmbeddingRequest = (new GptEmbeddingRequest())
+                            $articleParagraphTitleGptEmbeddingResponse = $this->AIService->embedding($gptService, $articleParagraphTitleGptEmbeddingRequest);
+                            $articleParagraphTitleEmbedding = $articleParagraphTitleGptEmbeddingResponse->embedding;
+                        }
+
+                        /* ArticleParagraph content Embedding request */
+                        if($articleParagraphContent) {
+
+                            /* Chunk ArticleParagraph content */
+                            /*
+                            $articleParagraphContentChunks = $this->tokenizer->chunk($articleParagraphContent, 'gpt-3.5-turbo', $gptMaxTokensPerChunk);
+
+                            $articleParagraphContentEmbedding = [];
+                            foreach ($articleParagraphContentChunks as $chunk) {
+                                $articleParagraphContentChunkGptEmbeddingRequest = (new GptEmbeddingRequest())
                                     ->setApiKey($gptApiKey)
                                     ->setModel($gptEmbeddingModel)
-                                    ->setPrompt($articleParagraphTitle);
+                                    ->setPrompt($chunk);
 
-                                $articleParagraphTitleGptEmbeddingResponse = $this->AIService->embedding($gptService, $articleParagraphTitleGptEmbeddingRequest);
-                                $articleParagraphTitleEmbedding = $articleParagraphTitleGptEmbeddingResponse->embedding;
+                                $articleParagraphContentChunkGptEmbeddingResponse = $gptClient->embedding($articleParagraphContentChunkGptEmbeddingRequest);
+                                $articleParagraphContentChunkEmbedding = $articleParagraphContentChunkGptEmbeddingResponse->embedding;
+                                $articleParagraphContentEmbedding = array_merge($articleParagraphContentEmbedding, $articleParagraphContentChunkEmbedding);
                             }
+                            */
 
-                            /* ArticleParagraph content Embedding request */
-                            if($articleParagraphContent) {
+                            $articleParagraphContentGptEmbeddingRequest = (new GptEmbeddingRequest())
+                                ->setApiKey($gptApiKey)
+                                ->setModel($gptEmbeddingModel)
+                                ->setPrompt($articleParagraphContent);
 
-                                /* Chunk ArticleParagraph content */
-                                /*
-                                $articleParagraphContentChunks = $this->tokenizer->chunk($articleParagraphContent, 'gpt-3.5-turbo', $gptMaxTokensPerChunk);
+                            $articleParagraphContentGptEmbeddingResponse = $this->AIService->embedding($gptService, $articleParagraphContentGptEmbeddingRequest);
+                            $articleParagraphContentEmbedding = $articleParagraphContentGptEmbeddingResponse->embedding;
+                        }
 
-                                $articleParagraphContentEmbedding = [];
-                                foreach ($articleParagraphContentChunks as $chunk) {
-                                    $articleParagraphContentChunkGptEmbeddingRequest = (new GptEmbeddingRequest())
-                                        ->setApiKey($gptApiKey)
-                                        ->setModel($gptEmbeddingModel)
-                                        ->setPrompt($chunk);
+                        /* Store ArticleParagraph Embedding */
+                        $this->redisSearcher->setEmbedding(
+                            new Embedding($articleParagraphId, ArticleParagraph::TYPE, $articleParagraphTitleEmbedding, $articleParagraphContentEmbedding),
+                            $articleParagraphKey,
+                            '$'
+                        );
 
-                                    $articleParagraphContentChunkGptEmbeddingResponse = $gptClient->embedding($articleParagraphContentChunkGptEmbeddingRequest);
-                                    $articleParagraphContentChunkEmbedding = $articleParagraphContentChunkGptEmbeddingResponse->embedding;
-                                    $articleParagraphContentEmbedding = array_merge($articleParagraphContentEmbedding, $articleParagraphContentChunkEmbedding);
-                                }
-                                */
+                        // Log
+                        $this->vectorizerLogger->info('ArticleParagraph#'.$articleParagraph->getId().' has been vectorized');
+                    }
 
-                                $articleParagraphContentGptEmbeddingRequest = (new GptEmbeddingRequest())
-                                    ->setApiKey($gptApiKey)
-                                    ->setModel($gptEmbeddingModel)
-                                    ->setPrompt($articleParagraphContent);
+                    break;
 
-                                $articleParagraphContentGptEmbeddingResponse = $this->AIService->embedding($gptService, $articleParagraphContentGptEmbeddingRequest);
-                                $articleParagraphContentEmbedding = $articleParagraphContentGptEmbeddingResponse->embedding;
-                            }
+                case CloudflareClient::SERVICE:
+                    $articleTitle = $article->getArticleTitle();
+                    $articleParagraphs = $article->getParagraphs();
 
-                            /* Store ArticleParagraph Embedding */
-                            $this->redisSearcher->setEmbedding(
-                                new Embedding($articleParagraphId, 'article_paragraph', $articleParagraphTitleEmbedding, $articleParagraphContentEmbedding),
-                                $articleParagraphKey,
-                                '$'
-                            );
+                    /** @var ArticleParagraph $articleParagraph */
+                    foreach ($articleParagraphs as $articleParagraph) {
+                        $articleParagraphId = $articleParagraph->getId();
+                        $articleParagraphTitle = $articleParagraph->getParagraphTitle();
+                        $articleParagraphContent = $articleParagraph->getParagraphContent();
+                        $cloudflareVector = $this->cloudflareVectorRepository->findOneBy([
+                            'type' => ArticleParagraph::TYPE,
+                            'articleParagraph' => $articleParagraph,
+                            'cloudflareIndex' => $cloudflareIndex
+                        ]);
+
+                        if (!$cloudflareVector) {
+                            // Get Embeddings
+                            $promptEmbeddingRequest = (new GptEmbeddingRequest())
+                                ->setAccountId($accountId)
+                                ->setApiKey($gptApiKey)
+                                ->setModel($gptEmbeddingModel)
+                                ->setPrompt($articleTitle . PHP_EOL . $articleParagraphTitle . PHP_EOL . $articleParagraphContent);
+
+                            $embedding = $this->AIService->embedding($gptService, $promptEmbeddingRequest);
+
+                            // Store Embeddings
+                            $vector = $this->vectorizeClient
+                                ->setAccountId($accountId)
+                                ->setApiKey($gptApiKey)
+                                ->insertVectors($index, [
+                                    'vectors' => [
+                                        'id' => ArticleParagraph::TYPE.'_'.$articleParagraphId,
+                                        'values' => $embedding->embedding,
+                                        'metadata' => [
+                                            'type' => ArticleParagraph::TYPE,
+                                            'id' => $articleParagraphId
+                                        ]
+                                    ]
+                            ]);
 
                             // Log
-                            $this->vectorizerLogger->info('ArticleParagraph#'.$articleParagraph->getId().' has been vectorized');
-                        //}
+                            $this->vectorizerLogger->debug('VECTOR');
+                            $this->vectorizerLogger->debug($vector);
+
+                            $vector = json_decode($vector, 1);
+
+                            if (false === $vector['success']) {
+                                throw new GptServiceException(implode(' ', array_column($vector['errors'], 'message')));
+                            }
+
+                            // Save CloudflareVector
+                            $cloudflareVector = (new CloudflareVector())
+                                ->setVectorId($vector['result']['mutationId'])
+                                ->setType(ArticleParagraph::TYPE)
+                                ->setArticle($article)
+                                ->setArticleParagraph($articleParagraph)
+                                ->setCloudflareIndex($cloudflareIndex);
+
+                            $this->entityManager->persist($cloudflareVector);
+                            $this->entityManager->flush();
+
+                            // Log
+                            $this->vectorizerLogger->info('ArticleParagraph#'.$articleParagraph->getId().' has been vectorized. Vector ID: '.$cloudflareVector->getVectorId());
+                        } else {
+                            $this->vectorizerLogger->warning('ArticleParagraph#'.$articleParagraph->getId().' has NOT been vectorized. Vector ID: '.$cloudflareVector->getVectorId().' already exists.');
+                        }
                     }
-                //}
 
-            } else {
-                // Log
-                $this->vectorizerLogger->error('Article#'.$message->getArticleId().' not found');
+                    break;
             }
+        } catch (\Exception $e) {
+            $this->vectorizerLogger->error('Article Vectorize Error: ' . $e->getMessage());
+            $this->vectorizerLogger->error(json_encode([
+                'article_id' => $message->getArticleId(),
+                'gpt_service' => $message->getGptService(),
+                'account_id' => $message->getAccountId(),
+                'api_key' => $message->getGptApiKey(),
+                'embeddings_model' => $message->getGptEmbeddingModel(),
+                'backtrace' => $e->getTrace()
+            ]));
+        }
 
-            return;
-        }
-        catch (\Exception $e) {
-            $this->vectorizerLogger->error('Error: '.$e->getMessage());
-        }
+        return;
     }
 }

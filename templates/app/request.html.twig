@@ -9,9 +9,17 @@
 <div class="container p-3">
     <form class="gpt-form" action="/gpt/request" method="post" enctype="multipart/form-data" onsubmit="event.preventDefault()">
         <div class="row pb-3">
-            <div class="form-group">
-                <label for="gpt_api_key">API Key:</label>
-                <input type="password" required value="" class="form-control" id="gpt_api_key" name="gpt_api_key">
+            <div class="col">
+                <div class="form-group">
+                    <label for="gpt_api_key">API Key:</label>
+                    <input type="text" required value="" class="form-control" id="gpt_api_key" name="gpt_api_key">
+                </div>
+            </div>
+            <div class="col gpt-folder-id-group">
+                <div class="form-group">
+                    <label for="gpt_folder_id">Folder ID:</label>
+                    <input type="text" required value="" class="form-control" id="gpt_folder_id" name="gpt_folder_id">
+                </div>
             </div>
         </div>
         <div class="row pb-3">
@@ -25,8 +33,9 @@
             <div class="col-lg">
                 <label for="gpt_service">GPT Service:</label>
                 <select class="form-control" id="gpt_service" name="gpt_service">
-                    <option value="openai">OpenAI</option>
-                    <option value="yandex-gpt" disabled>Yandex GPT</option>
+                    {% for aiService in aiServices %}
+                        <option value="{{ aiService }}" {{ (requestOption.gptService == aiService) ? 'selected' : '' }}>{{ aiService }}</option>
+                    {% endfor %}
                 </select>
             </div>
         </div>
@@ -94,9 +103,20 @@
                             <div class="row">
                                 <div class="col-sm">
                                     <label for="gpt_model">GPT Model:</label>
-                                    <select class="form-control" id="gpt_model" name="gpt_model">
-                                        <option value="gpt-3.5-turbo" {{ (requestOption.model == 'gpt-3.5-turbo' ? 'selected' : '') }}>gpt-3.5-turbo</option>
-                                        <option value="gpt-4" {{ (requestOption.model == 'gpt-4' ? 'selected' : '') }}>gpt-4</option>
+                                    <select class="form-control" id="openai_gpt_model" name="gpt_model">
+                                        {% for model in openaiModels %}
+                                            <option value="{{ model }}" {{ (requestOption.model == model ? 'selected' : '') }}>{{ model }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <select class="form-control" id="yandex_gpt_model" name="gpt_model">
+                                        {% for model in yandexGptModels %}
+                                            <option value="{{ model }}" {{ (requestOption.model == model ? 'selected' : '') }}>{{ model }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <select class="form-control" id="gemini_gpt_model" name="gpt_model">
+                                        {% for model in geminiModels %}
+                                            <option value="{{ model }}" {{ (requestOption.model == model ? 'selected' : '') }}>{{ model }}</option>
+                                        {% endfor %}
                                     </select>
                                 </div>
                                 <div class="col-sm">
@@ -134,6 +154,32 @@
                                     </div>
                                 </div>
                             </div>
+
+
+                            <div class="row">
+                                <div class="col-sm">
+                                    <div class="form-group">
+                                        <label for="gpt_top_p">Top P:</label>
+                                        <input type="text" value="{{ requestOption.topP }}" class="form-control" id="gpt_top_p" name="gpt_top_p">
+                                    </div>
+                                </div>
+                                <div class="col-sm">
+                                    <div class="form-group">
+                                        <label for="gpt_top_k">Top K:</label>
+                                        <input type="text" value="{{ requestOption.topK }}" class="form-control" id="gpt_top_k" name="gpt_top_k">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-sm">
+                                    <div class="form-group">
+                                        <label for="gpt_response_content_type">Response Content Type:</label>
+                                        <input type="text" value="{{ requestOption.responseContentType }}" class="form-control" id="gpt_response_content_type" name="gpt_response_content_type">
+                                    </div>
+                                </div>
+                            </div>
+
+
                             <div class="mt-3">
                                 <div class="row">
                                     <div class="col-lg">

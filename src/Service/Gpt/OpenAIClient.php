@@ -5,35 +5,44 @@ namespace App\Service\Gpt;
 use App\Entity\GptRequestHistory;
 use App\Repository\GptRequestHistoryRepository;
 use App\Service\Gpt\Contract\Gpt;
+use App\Service\Gpt\Exception\GptServiceException;
 use App\Service\Gpt\Exception\TokenLimitExceededException;
+use App\Service\Gpt\Request\GptAssistantRequest;
 use App\Service\Gpt\Request\GptEmbeddingRequest;
 use App\Service\Gpt\Request\GptKnowledgebaseRequest;
 use App\Service\Gpt\Request\GptQuestionRequest;
 use App\Service\Gpt\Request\GptSummarizeRequest;
+use App\Service\Gpt\Response\GptAssistantResponse;
 use App\Service\Gpt\Response\GptEmbeddingResponse;
 use App\Service\Gpt\Response\GptResponse;
 use App\Service\OpenAI\Client;
 use App\Service\OpenAI\Tokenizer\Tokenizer;
+use App\Service\VectorSearch\RedisSearcher;
+use App\Service\VectorSearch\SearchResponse;
+use DateTime;
+use Doctrine\ORM\OptimisticLockException;
+use Doctrine\ORM\ORMException;
 use Exception;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Serializer\Exception\ExceptionInterface;
-use Symfony\Component\Validator\Validator\ValidatorInterface;
 use Symfony\Component\Serializer\Normalizer\DenormalizerInterface;
 
 class OpenAIClient implements Gpt
 {
+    public const SERVICE = 'openai';
+
     private $client;
     private $tokenizer;
-    private $validator;
+    private $redisSearcher;
     private $gptRequestHistoryRepository;
     private $denormalizer;
     private $logger;
 
-    public function __construct(Client $client, Tokenizer $tokenizer, ValidatorInterface $validator, GptRequestHistoryRepository $gptRequestHistoryRepository, DenormalizerInterface $denormalizer, LoggerInterface $logger)
+    public function __construct(Client $client, Tokenizer $tokenizer, RedisSearcher $redisSearcher, GptRequestHistoryRepository $gptRequestHistoryRepository, DenormalizerInterface $denormalizer, LoggerInterface $logger)
     {
         $this->client = $client;
         $this->tokenizer = $tokenizer;
-        $this->validator = $validator;
+        $this->redisSearcher = $redisSearcher;
         $this->gptRequestHistoryRepository = $gptRequestHistoryRepository;
         $this->denormalizer = $denormalizer;
         $this->logger = $logger;
@@ -46,17 +55,17 @@ class OpenAIClient implements Gpt
      * @throws TokenLimitExceededException
      * @throws Exception
      */
-    public function questionChatRequest(GptQuestionRequest $request) : array
+    public function questionChatRequest(GptQuestionRequest $request): array
     {
+        $this->client->setApiKey($request->getApiKey());
+
         $optionsCollection = [];
 
-        if($request->raw) {
+        if ($request->raw) {
             // Raw OpenAi request validation
             $json = $request->prepareClientMessageTemplate($request->clientMessage, $request->raw);
-            $raw = json_decode($json, 1);
-            $options = array_merge($raw, ['api_key' => $request->getApiKey()]);
-            $prompt = implode(' ', array_column($options['messages'], 'content'));
-
+            $options = json_decode($json, 1);
+            $prompt = implode(PHP_EOL, array_column($options['messages'], 'content'));
             $promptTokenCount = $this->tokenizer->count($prompt, $options['model']);
 
             if($promptTokenCount > $request->tokenLimit) {
@@ -66,7 +75,7 @@ class OpenAIClient implements Gpt
             $optionsCollection[] = $options;
 
         } else {
-            $optionsCollection[] = $request->buildOptions();
+            $optionsCollection[] = $request->buildOptions(self::SERVICE);
 
             $promptTokenCount = $this->tokenizer->count(($request->systemMessage.PHP_EOL.$request->userMessage), $request->model);
 
@@ -92,7 +101,7 @@ class OpenAIClient implements Gpt
                             throw new TokenLimitExceededException();
                         }
 
-                        $optionsCollection[] = $request->buildOptions();
+                        $optionsCollection[] = $request->buildOptions(self::SERVICE);
                     }
                 } else {
                     // if fullClientMessage goes over the token limit
@@ -106,7 +115,7 @@ class OpenAIClient implements Gpt
             $response = $this->chat($this->client, $options);
 
             if(array_key_exists('error', $response)) {
-                throw new Exception($response['error']['message']);
+                throw new GptServiceException($response['error']['message']);
             }
 
             $res = $this->rebuildResponse($response);
@@ -117,12 +126,101 @@ class OpenAIClient implements Gpt
             $gptResponses[] = $gptResponse;
 
             // Save request
-            $systemMessage = $options['messages'][array_search('system', array_column($options['messages'], 'role'))]['content'];
-            $userMessage = $options['messages'][array_search('user', array_column($options['messages'], 'role'))]['content'];
+            $systemMessageIndex = array_search('system', array_column($options['messages'], 'role'));
+            $userMessageIndex = array_search('user', array_column($options['messages'], 'role'));
+            $systemMessage = false !== $systemMessageIndex ? $options['messages'][$systemMessageIndex]['content'] : '';
+            $userMessage = false !== $userMessageIndex ? $options['messages'][$userMessageIndex]['content'] : '';
+
             $this->storeGptRequestHistory($this->gptRequestHistoryRepository, $gptResponse, $systemMessage, $userMessage);
         }
 
         return $gptResponses;
+    }
+
+    /**
+     * @param string $gptApiKey
+     * @return array
+     * @throws Exception
+     */
+    public function assistantList(string $gptApiKey): array
+    {
+        $this->client->setApiKey($gptApiKey);
+
+        return json_decode($this->client->listAssistants(), 1);
+    }
+
+    /**
+     * @param GptAssistantRequest $request
+     * @return GptAssistantResponse
+     * @throws ExceptionInterface
+     * @throws GptServiceException
+     * @throws Exception
+     */
+    public function assistantRequest(GptAssistantRequest $request): GptAssistantResponse
+    {
+        $this->client->setApiKey($request->getApiKey());
+
+        // If Raw is not empty
+        if ($request->raw) {
+            $options = json_decode($request->raw, 1);
+        } else {
+            $options = $request->buildThreadAndRunOptions(self::SERVICE);
+        }
+
+        // Create Thread & Run
+        $run = $this->client->createThreadAndRun($options);
+        $run = json_decode($run, 1);
+
+        $this->logger->debug('Run (Attempt 0): '.json_encode($run));
+
+        if (array_key_exists('error', $run)) {
+            throw new GptServiceException($run['error']['message']);
+        }
+
+        // Poll Run until done
+        $maxAttempts = 10;
+        $attempt = 1;
+
+        do {
+            $delay = 1000000 * $attempt;
+            usleep($delay); // Delay 1 sec
+
+            $run = $this->client->retrieveRun($run['thread_id'], $run['id']);
+            $run = json_decode($run, 1);
+
+            $this->logger->debug('Run (Attempt '.$attempt.'): '.json_encode($run));
+
+            if (array_key_exists('error', $run)) {
+                throw new GptServiceException($run['error']['message']);
+            }
+
+            $status = $run['status'] ?? null;
+
+            if (is_null($status) || 'failed' === $status) {
+                throw new GptServiceException('Assistant request error: Run failed.');
+            }
+            elseif ('completed' === $status) {
+                break;
+            }
+
+            $attempt++;
+        } while ($status !== 'completed' && $attempt <= $maxAttempts);
+
+        if ('completed' !== $status) {
+            throw new GptServiceException('Assistant request error: Run timed out.');
+        }
+
+        $messageList = $this->client->listThreadMessages($run['thread_id']);
+        $messageList = json_decode($messageList, 1);
+
+        $this->logger->debug('Messages: '.json_encode($messageList));
+
+        $res = $this->rebuildAssistantResponse($run, $messageList);
+
+        /** @var GptAssistantResponse $gptAssistantResponse */
+        $gptAssistantResponse = $this->denormalizer->denormalize($res, GptAssistantResponse::class);
+
+        return $gptAssistantResponse;
     }
 
     /**
@@ -131,14 +229,16 @@ class OpenAIClient implements Gpt
      * @throws ExceptionInterface
      * @throws Exception
      */
-    public function knowledgebaseChatRequest(GptKnowledgebaseRequest $request) : GptResponse
+    public function knowledgebaseChatRequest(GptKnowledgebaseRequest $request): GptResponse
     {
-        $options = $request->buildOptions();
+        $this->client->setApiKey($request->getApiKey());
+
+        $options = $request->buildOptions(self::SERVICE);
 
         $response = $this->chat($this->client, $options);
 
         if(array_key_exists('error', $response)) {
-            throw new Exception($response['error']['message']);
+            throw new GptServiceException($response['error']['message']);
         }
 
         $res = $this->rebuildResponse($response);
@@ -158,20 +258,23 @@ class OpenAIClient implements Gpt
      * @param string $name
      * @return bool
      */
-    public function supports(string $name) : bool
+    public function supports(string $name): bool
     {
-        return 'openai' === $name;
+        return self::SERVICE === $name;
     }
 
     /**
      * @param GptEmbeddingRequest $request
      * @return GptEmbeddingResponse
      * @throws ExceptionInterface
+     * @throws GptServiceException
      */
-    public function embedding(GptEmbeddingRequest $request) : GptEmbeddingResponse
+    public function embedding(GptEmbeddingRequest $request): GptEmbeddingResponse
     {
+        $this->client->setApiKey($request->getApiKey());
+
         $responseJson = $this->client->embeddings([
-            'api_key' => $request->getApiKey(),
+            //'api_key' => $request->getApiKey(),
             'model' => $request->getModel(),
             'input' => $request->getPrompt()
         ]);
@@ -179,13 +282,17 @@ class OpenAIClient implements Gpt
         $response = json_decode($responseJson, 1);
 
         if(array_key_exists('error', $response)) {
-            throw new Exception($response['error']['message']);
+            throw new GptServiceException($response['error']['message']);
         }
+
+        $embedding = call_user_func_array('array_merge', array_column($response['data'], 'embedding'));
+        $dimensions = count($embedding);
 
         /** @var GptEmbeddingResponse $embeddingResponse */
         $embeddingResponse = $this->denormalizer->denormalize([
             'model' => $response['model'],
-            'embedding' => call_user_func_array('array_merge', array_column($response['data'], 'embedding')),
+            'embedding' => $embedding,
+            'dimensions' => $dimensions,
             'prompt_tokens' => $response['usage']['prompt_tokens'],
             'total_tokens' => $response['usage']['total_tokens']
         ], GptEmbeddingResponse::class);
@@ -194,16 +301,32 @@ class OpenAIClient implements Gpt
     }
 
     /**
+     * @param GptEmbeddingRequest $embeddingRequest
+     * @param GptEmbeddingResponse $embeddingResponse
+     * @param int $vectorSearchResultCount
+     * @param float $vectorSearchDistanceLimit
+     * @return array<SearchResponse>
+     */
+    public function search(GptEmbeddingRequest $embeddingRequest, GptEmbeddingResponse $embeddingResponse, int $vectorSearchResultCount = 2, float $vectorSearchDistanceLimit = 1.0): array
+    {
+        $searchResult = $this->redisSearcher->search($embeddingResponse, $vectorSearchResultCount, $vectorSearchDistanceLimit);
+
+        return $searchResult;
+    }
+
+    /**
      * @param GptSummarizeRequest $request
      * @return array
      * @throws ExceptionInterface
-     * @throws \Doctrine\ORM\ORMException
-     * @throws \Doctrine\ORM\OptimisticLockException
+     * @throws ORMException
+     * @throws OptimisticLockException
      * @throws Exception
      */
-    public function summarizeRequest(GptSummarizeRequest $request) : array
+    public function summarizeRequest(GptSummarizeRequest $request): array
     {
-        $optionsCollection[] = $request->buildOptions();
+        $this->client->setApiKey($request->getApiKey());
+
+        $optionsCollection[] = $request->buildOptions(self::SERVICE);
         $promptTokenCount = $this->tokenizer->count($request->userMessage, $request->model);
 
         if($promptTokenCount > $request->tokenLimit) {
@@ -224,7 +347,7 @@ class OpenAIClient implements Gpt
 
                     if(!empty($request->messages)) {
                         $request->prepareMainPrompt();
-                        $optionsCollection[] = $request->buildOptions();
+                        $optionsCollection[] = $request->buildOptions(self::SERVICE);
 
                         // Unset messages
                         $request->setMessages([]);
@@ -241,11 +364,11 @@ class OpenAIClient implements Gpt
 
                         foreach ($chunks as $chunk) {
                             $request->prepareChunkSummarizePrompt($chunk);
-                            $optionsCollection[] = $request->buildOptions();
+                            $optionsCollection[] = $request->buildOptions(self::SERVICE);
                         }
                     }
                     else {
-                        $optionsCollection[] = $request->buildOptions();
+                        $optionsCollection[] = $request->buildOptions(self::SERVICE);
                     }
 
                     // Unset messages
@@ -255,7 +378,7 @@ class OpenAIClient implements Gpt
             }
 
             if(!empty($request->messages)) {
-                $optionsCollection[] = $request->buildOptions();
+                $optionsCollection[] = $request->buildOptions(self::SERVICE);
 
                 // Unset messages
                 $request->setMessages([]);
@@ -269,7 +392,7 @@ class OpenAIClient implements Gpt
             //$response = $this->completion($this->client, $options);
 
             if(array_key_exists('error', $response)) {
-                throw new Exception($response['error']['message']);
+                throw new GptServiceException($response['error']['message']);
             }
 
             $res = $this->rebuildResponse($response);
@@ -309,7 +432,7 @@ class OpenAIClient implements Gpt
      * @return array
      * @throws Exception
      */
-    public function chat(Client $client, array $options) : array
+    public function chat(Client $client, array $options): array
     {
         $result = $client->chat($options);
         $this->logger->debug($result);
@@ -373,14 +496,55 @@ class OpenAIClient implements Gpt
         return $res;
     }
 
+    private function rebuildAssistantResponse(array $run, array $messageList): array
+    {
+        $lastMessage = isset($messageList['data']) ? reset($messageList['data']) : [];
+
+        $this->logger->debug('Last mess: ' . json_encode($lastMessage));
+
+        $content = '';
+        $i = 0;
+        foreach (array_reverse($messageList['data']) as $row) {
+            if('assistant' === $row['role']) {
+                foreach ($row['content'] as $item) {
+                    $content .= $i > 0 ? PHP_EOL : '';
+                    $content .= $item['text']['value'] ?? '';
+
+                    $i++;
+                }
+            }
+        }
+
+        // Remove references from response message
+        $removePattern = function (string $content, string $pattern = '/【.*?】/'): string {
+            return preg_replace($pattern, '', $content);
+        };
+        $content = $removePattern($content);
+        //
+
+        return [
+            'id' => $lastMessage['id'] ?? null,
+            'assistant_id' => $lastMessage['assistant_id'] ?? null,
+            'thread_id' => $lastMessage['thread_id'] ?? null,
+            'run_id' => $lastMessage['run_id'] ?? null,
+            'model' => $run['model'] ?? null,
+            'datetime' => isset($lastMessage['created_at']) ? date('Y-m-d H:i:s', $lastMessage['created_at']) : null,
+            'message' => $content,
+            'object' => $lastMessage['object'] ?? null,
+            'prompt_tokens' => $run['usage']['prompt_tokens'] ?? null,
+            'completion_tokens' => $run['usage']['completion_tokens'] ?? null,
+            'total_tokens' => $run['usage']['total_tokens'] ?? null
+        ];
+    }
+
     /**
      * @param GptRequestHistoryRepository $gptRequestHistoryRepository
      * @param GptResponse $gptResponse
      * @param string $systemMessage
      * @param string $userMessage
      * @return GptRequestHistory
-     * @throws \Doctrine\ORM\ORMException
-     * @throws \Doctrine\ORM\OptimisticLockException
+     * @throws ORMException
+     * @throws OptimisticLockException
      * @throws Exception
      */
     private function storeGptRequestHistory(GptRequestHistoryRepository $gptRequestHistoryRepository, GptResponse $gptResponse, ?string $systemMessage, ?string $userMessage)
@@ -388,7 +552,7 @@ class OpenAIClient implements Gpt
         $gptRequestHistory = new GptRequestHistory();
 
         $gptRequestHistory->setModel($gptResponse->model);
-        $gptRequestHistory->setDatetime(new \DateTime($gptResponse->datetime));
+        $gptRequestHistory->setDatetime(new DateTime($gptResponse->datetime));
         $gptRequestHistory->setSystemMessage($systemMessage);
         $gptRequestHistory->setUserMessage($userMessage);
         $gptRequestHistory->setAssistantMessage($gptResponse->message);

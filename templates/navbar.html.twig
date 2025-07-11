@@ -16,6 +16,9 @@
                         <a class="nav-link {% if app.request.get('_route') == 'gpt_request_page' %}active{% endif %}" href="/">GPT-Requester</a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link {% if app.request.get('_route') == 'gpt_assistant_page' %}active{% endif %}" href="/assistant">GPT-Assistant</a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link {% if app.request.get('_route') == 'gpt_search_page' %}active{% endif %}" href="/search">GPT-Searcher</a>
                     </li>
                     <li class="nav-item">
@@ -35,6 +38,13 @@
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link {% if app.request.get('_route') == 'knowledgebase_templates' %}active{% endif %}" href="/knowledgebase/templates">Templates</a>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li class="nav-item">
+                                <a class="nav-link {% if app.request.get('_route') == 'cloudflare_indexes' %}active{% endif %}" href="/cloudflare/indexes">Cloudflare Indexes</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {% if app.request.get('_route') == 'cloudflare_vectors' %}active{% endif %}" href="/cloudflare/vectors">Cloudflare Vectors</a>
                             </li>
                         </ul>
                     </li>

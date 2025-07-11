@@ -1,5 +1,69 @@
 $(document).ready(function ()
 {
+    // Options form
+    var gptServiceElement = $('#gpt_service');
+    var gptService = gptServiceElement.val();
+
+    updateOptionsForm(gptService);
+
+    gptServiceElement.on('change', function () {
+        gptService = gptServiceElement.val();
+
+        updateOptionsForm(gptService);
+    });
+
+    function updateOptionsForm(gptService)
+    {
+        var openaiGptEmbeddingModelSelect = $('#openai_gpt_embedding_model');
+        var cloudflareGptEmbeddingModelSelect = $('#cloudflare_gpt_embedding_model');
+
+        var openaiGptModelSelect = $('#openai_gpt_model');
+        var cloudflareGptModelSelect = $('#cloudflare_gpt_model');
+
+        var switchElementVisibility = function(e, bool) {
+            if(bool) { e.removeClass('d-none'); }
+            else { e.addClass('d-none'); }
+
+            e.attr('disabled', !bool);
+        };
+
+        switch (gptService) {
+            case 'cloudflare':
+                switchElementVisibility(openaiGptEmbeddingModelSelect, false);
+                switchElementVisibility(cloudflareGptEmbeddingModelSelect, true);
+
+                switchElementVisibility(openaiGptModelSelect, false);
+                switchElementVisibility(cloudflareGptModelSelect, true);
+
+                $('.account-id-group').removeClass('d-none');
+                $('.account-id-group').find('input').attr('required', true);
+
+                $('.cloudflare-index-group').removeClass('d-none');
+                $('.cloudflare-index-group').find('select').attr('required', true);
+
+                //$('#vector_search_distance_limit').attr('disabled', true);
+
+                break;
+
+            default:
+                switchElementVisibility(openaiGptEmbeddingModelSelect, true);
+                switchElementVisibility(cloudflareGptEmbeddingModelSelect, false);
+
+                switchElementVisibility(openaiGptModelSelect, true);
+                switchElementVisibility(cloudflareGptModelSelect, false);
+
+                $('.account-id-group').addClass('d-none');
+                $('.account-id-group').find('input').attr('required', false);
+
+                $('.cloudflare-index-group').addClass('d-none');
+                $('.cloudflare-index-group').find('select').attr('required', false);
+
+                //$('#vector_search_distance_limit').attr('disabled', false);
+
+                break;
+        }
+    }
+
     $('.gpt-option-form').submit(function(e) {
         var method = $(this).attr('method');
         var url = $(this).attr('action');
@@ -72,18 +136,22 @@ function request(method, url, formData)
                 message += '<p class="m-0">Nothing found</p>\n';
             } else {
                 $.each(data.search_result, function(i, searchResult) {
-                    switch (searchResult.type) {
-                        case 'article':
-                            message += '<p class="m-0"><b>Distance:</b> '+searchResult.distance+'<a target="_blank" href="/knowledgebase/articles/'+searchResult.entity.id+'" class="link-primary mx-3">'+(searchResult.entity.articleTitle || 'Article#'+searchResult.entity.id)+'</a></p>';
-                            break;
+                    if (null !== searchResult.entity) {
+                        switch (searchResult.type) {
+                            case 'article':
+                                message += '<p class="m-0"><b>Distance:</b> '+searchResult.distance+'<a target="_blank" href="/knowledgebase/articles/'+searchResult.entity.id+'" class="link-primary mx-3">'+(searchResult.entity.articleTitle || 'Article#'+searchResult.entity.id)+'</a></p>';
+                                break;
 
-                        case 'article_paragraph':
-                            message += '<p class="m-0"><b>Distance:</b> '+searchResult.distance+'<a target="_blank" href="/knowledgebase/articles/'+searchResult.entity.article.id+'/paragraphs/'+searchResult.entity.id+'" class="link-primary mx-3">'+(searchResult.entity.paragraphTitle || 'ArticleParagraph#'+searchResult.entity.id)+'</a></p>';
-                            break;
+                            case 'article_paragraph':
+                                message += '<p class="m-0"><b>Distance:</b> '+searchResult.distance+'<a target="_blank" href="/knowledgebase/articles/'+searchResult.entity.article.id+'/paragraphs/'+searchResult.entity.id+'" class="link-primary mx-3">'+(searchResult.entity.paragraphTitle || 'ArticleParagraph#'+searchResult.entity.id)+'</a></p>';
+                                break;
 
-                        case 'template':
-                            message += '<p class="m-0"><b>Distance:</b> '+searchResult.distance+'<a target="_blank" href="/knowledgebase/templates/'+searchResult.entity.id+'" class="link-primary mx-3">'+(searchResult.entity.templateTitle || 'Template#'+searchResult.entity.id)+'</a></p>';
-                            break;
+                            case 'template':
+                                message += '<p class="m-0"><b>Distance:</b> '+searchResult.distance+'<a target="_blank" href="/knowledgebase/templates/'+searchResult.entity.id+'" class="link-primary mx-3">'+(searchResult.entity.templateTitle || 'Template#'+searchResult.entity.id)+'</a></p>';
+                                break;
+                        }
+                    } else {
+                        message += '<p class="m-0"><b>Distance:</b> ' + searchResult.distance + '<a target="_blank" href="/knowledgebase/articles" class="link-primary mx-3">' + searchResult.type + ' #' + searchResult.id + ' (inactive)' + '</a></p>';
                     }
                 }.bind(message));
             }

@@ -2,6 +2,8 @@
 
 namespace App\Service\VectorSearch;
 
+
+use App\Service\Gpt\Response\GptEmbeddingResponse;
 use Predis\Client;
 use Predis\Command\Argument\Search\CreateArguments;
 use Predis\Command\Argument\Search\SchemaFields\NumericField;
@@ -80,18 +82,17 @@ class RedisSearcher
     }
 
     /**
-     * @param array $embedding
+     * @param GptEmbeddingResponse $embeddingResponse
      * @param int $k
      * @param float $distanceLimit
-     * @return array
+     * @return array<SearchResponse>
      */
-    public function search(array $embedding, int $k = 2, float $distanceLimit = 0.99) : array
+    public function search(GptEmbeddingResponse $embeddingResponse, int $k = 2, float $distanceLimit = 0.99) : array
     {
-        $vectorDimension = count($embedding);
-        $this->createIndex($vectorDimension);
+        $this->createIndex($embeddingResponse->dimensions);
 
         $binaryVector = '';
-        foreach ($embedding as $value) {
+        foreach ($embeddingResponse->embedding as $value) {
             $binaryVector .= pack('f', $value);
         }
 
@@ -193,7 +194,7 @@ class RedisSearcher
     /**
      * @param int $vectorDimension
      */
-    private function createIndex(int $vectorDimension) : void
+    private function createIndex(int $vectorDimension): void
     {
         /*
         try {

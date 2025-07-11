@@ -22,12 +22,14 @@ Encore
      */
     .addEntry('app.js', './assets/app.js')
     .addEntry('gpt-request.js', './assets/gpt-request.js')
+    .addEntry('gpt-assistant.js', './assets/gpt-assistant.js')
     .addEntry('gpt-search.js', './assets/gpt-search.js')
     .addEntry('gpt-summarize.js', './assets/gpt-summarize.js')
     .addEntry('data-upload.js', './assets/data-upload.js')
     /**/
     .addStyleEntry('app.scss', './assets/styles/app.scss')
     .addStyleEntry('gpt-request.scss', './assets/styles/gpt-request.scss')
+    .addStyleEntry('gpt-assistant.scss', './assets/styles/gpt-assistant.scss')
     .addStyleEntry('gpt-search.scss', './assets/styles/gpt-search.scss')
     .addStyleEntry('gpt-summarize.scss', './assets/styles/gpt-summarize.scss')
 

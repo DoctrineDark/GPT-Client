@@ -6,6 +6,8 @@ use Exception;
 
 class Client
 {
+    private $apiKey;
+
     private $engine = "davinci";
     private $model = "text-davinci-002";
     private $chatModel = "gpt-3.5-turbo";
@@ -15,12 +17,8 @@ class Client
     private $stream_method;
     private $customUrl = "";
     private $proxy = "";
+    private $proxyAuth = "";
     private $curlInfo = [];
-
-    /**
-     * @var string
-     */
-    private $apiKey;
 
     public function __construct(string $apiKey)
     {
@@ -38,12 +36,37 @@ class Client
     }
 
     /**
+     * @param string $apiKey
+     * @return $this
+     */
+    public function setApiKey(string $apiKey)
+    {
+        $this->apiKey = $apiKey;
+
+        return $this;
+    }
+
+    /**
      * @return array
      * Remove this method from your code before deploying
      */
     public function getCURLInfo()
     {
         return $this->curlInfo;
+    }
+
+    /**
+     * @return array
+     */
+    public function models(): array
+    {
+        return [
+            'gpt-3.5-turbo',
+            'gpt-4',
+            'gpt-4-turbo',
+            'gpt-4o',
+            'gpt-4o-mini',
+        ];
     }
 
     /**
@@ -469,7 +492,7 @@ class Client
     public function createAssistant($data)
     {
         $data['model'] = $data['model'] ?? $this->chatModel;
-        $this->headers[] = 'OpenAI-Beta: assistants=v1';
+        $this->headers[] = 'OpenAI-Beta: assistants=v2';
         $url = Url::assistantsUrl();
         $this->baseUrl($url);
 
@@ -483,7 +506,7 @@ class Client
      */
     public function retrieveAssistant($assistantId)
     {
-        $this->headers[] = 'OpenAI-Beta: assistants=v1';
+        $this->headers[] = 'OpenAI-Beta: assistants=v2';
         $url = Url::assistantsUrl() . '/' . $assistantId;
         $this->baseUrl($url);
 
@@ -498,7 +521,7 @@ class Client
      */
     public function modifyAssistant($assistantId, $data)
     {
-        $this->headers[] = 'OpenAI-Beta: assistants=v1';
+        $this->headers[] = 'OpenAI-Beta: assistants=v2';
         $url = Url::assistantsUrl() . '/' . $assistantId;
         $this->baseUrl($url);
 
@@ -512,7 +535,7 @@ class Client
      */
     public function deleteAssistant($assistantId)
     {
-        $this->headers[] = 'OpenAI-Beta: assistants=v1';
+        $this->headers[] = 'OpenAI-Beta: assistants=v2';
         $url = Url::assistantsUrl() . '/' . $assistantId;
         $this->baseUrl($url);
 
@@ -526,7 +549,7 @@ class Client
      */
     public function listAssistants($query = [])
     {
-        $this->headers[] = 'OpenAI-Beta: assistants=v1';
+        $this->headers[] = 'OpenAI-Beta: assistants=v2';
         $url = Url::assistantsUrl();
         if (count($query) > 0) {
             $url .= '?' . http_build_query($query);
@@ -544,7 +567,7 @@ class Client
      */
     public function createAssistantFile($assistantId, $fileId)
     {
-        $this->headers[] = 'OpenAI-Beta: assistants=v1';
+        $this->headers[] = 'OpenAI-Beta: assistants=v2';
         $url = Url::assistantsUrl() . '/' . $assistantId . '/files';
         $this->baseUrl($url);
 
@@ -559,7 +582,7 @@ class Client
      */
     public function retrieveAssistantFile($assistantId, $fileId)
     {
-        $this->headers[] = 'OpenAI-Beta: assistants=v1';
+        $this->headers[] = 'OpenAI-Beta: assistants=v2';
         $url = Url::assistantsUrl() . '/' . $assistantId . '/files/' . $fileId;
         $this->baseUrl($url);
 
@@ -574,7 +597,7 @@ class Client
      */
     public function listAssistantFiles($assistantId, $query = [])
     {
-        $this->headers[] = 'OpenAI-Beta: assistants=v1';
+        $this->headers[] = 'OpenAI-Beta: assistants=v2';
         $url = Url::assistantsUrl() . '/' . $assistantId . '/files';
         if (count($query) > 0) {
             $url .= '?' . http_build_query($query);
@@ -592,7 +615,7 @@ class Client
      */
     public function deleteAssistantFile($assistantId, $fileId)
     {
-        $this->headers[] = 'OpenAI-Beta: assistants=v1';
+        $this->headers[] = 'OpenAI-Beta: assistants=v2';
         $url = Url::assistantsUrl() . '/' . $assistantId . '/files/' . $fileId;
         $this->baseUrl($url);
 
@@ -606,7 +629,7 @@ class Client
      */
     public function createThread($data = [])
     {
-        $this->headers[] = 'OpenAI-Beta: assistants=v1';
+        $this->headers[] = 'OpenAI-Beta: assistants=v2';
         $url = Url::threadsUrl();
         $this->baseUrl($url);
 
@@ -620,7 +643,7 @@ class Client
      */
     public function retrieveThread($threadId)
     {
-        $this->headers[] = 'OpenAI-Beta: assistants=v1';
+        $this->headers[] = 'OpenAI-Beta: assistants=v2';
         $url = Url::threadsUrl() . '/' . $threadId;
         $this->baseUrl($url);
 
@@ -635,7 +658,7 @@ class Client
      */
     public function modifyThread($threadId, $data)
     {
-        $this->headers[] = 'OpenAI-Beta: assistants=v1';
+        $this->headers[] = 'OpenAI-Beta: assistants=v2';
         $url = Url::threadsUrl() . '/' . $threadId;
         $this->baseUrl($url);
 
@@ -649,7 +672,7 @@ class Client
      */
     public function deleteThread($threadId)
     {
-        $this->headers[] = 'OpenAI-Beta: assistants=v1';
+        $this->headers[] = 'OpenAI-Beta: assistants=v2';
         $url = Url::threadsUrl() . '/' . $threadId;
         $this->baseUrl($url);
 
@@ -664,7 +687,7 @@ class Client
      */
     public function createThreadMessage($threadId, $data)
     {
-        $this->headers[] = 'OpenAI-Beta: assistants=v1';
+        $this->headers[] = 'OpenAI-Beta: assistants=v2';
         $url = Url::threadsUrl() . '/' . $threadId . '/messages';
         $this->baseUrl($url);
 
@@ -679,7 +702,7 @@ class Client
      */
     public function retrieveThreadMessage($threadId, $messageId)
     {
-        $this->headers[] = 'OpenAI-Beta: assistants=v1';
+        $this->headers[] = 'OpenAI-Beta: assistants=v2';
         $url = Url::threadsUrl() . '/' . $threadId . '/messages/' . $messageId;
         $this->baseUrl($url);
 
@@ -695,7 +718,7 @@ class Client
      */
     public function modifyThreadMessage($threadId, $messageId, $data)
     {
-        $this->headers[] = 'OpenAI-Beta: assistants=v1';
+        $this->headers[] = 'OpenAI-Beta: assistants=v2';
         $url = Url::threadsUrl() . '/' . $threadId . '/messages/' . $messageId;
         $this->baseUrl($url);
 
@@ -710,7 +733,7 @@ class Client
      */
     public function listThreadMessages($threadId, $query = [])
     {
-        $this->headers[] = 'OpenAI-Beta: assistants=v1';
+        $this->headers[] = 'OpenAI-Beta: assistants=v2';
         $url = Url::threadsUrl() . '/' . $threadId . '/messages';
         if (count($query) > 0) {
             $url .= '?' . http_build_query($query);
@@ -729,7 +752,7 @@ class Client
      */
     public function retrieveMessageFile($threadId, $messageId, $fileId)
     {
-        $this->headers[] = 'OpenAI-Beta: assistants=v1';
+        $this->headers[] = 'OpenAI-Beta: assistants=v2';
         $url = Url::threadsUrl() . '/' . $threadId . '/messages/' . $messageId . '/files/' . $fileId;
         $this->baseUrl($url);
 
@@ -745,7 +768,7 @@ class Client
      */
     public function listMessageFiles($threadId, $messageId, $query = [])
     {
-        $this->headers[] = 'OpenAI-Beta: assistants=v1';
+        $this->headers[] = 'OpenAI-Beta: assistants=v2';
         $url = Url::threadsUrl() . '/' . $threadId . '/messages/' . $messageId . '/files';
         if (count($query) > 0) {
             $url .= '?' . http_build_query($query);
@@ -763,7 +786,7 @@ class Client
      */
     public function createRun($threadId, $data)
     {
-        $this->headers[] = 'OpenAI-Beta: assistants=v1';
+        $this->headers[] = 'OpenAI-Beta: assistants=v2';
         $url = Url::threadsUrl() . '/' . $threadId . '/runs';
         $this->baseUrl($url);
 
@@ -778,7 +801,7 @@ class Client
      */
     public function retrieveRun($threadId, $runId)
     {
-        $this->headers[] = 'OpenAI-Beta: assistants=v1';
+        $this->headers[] = 'OpenAI-Beta: assistants=v2';
         $url = Url::threadsUrl() . '/' . $threadId . '/runs/' . $runId;
         $this->baseUrl($url);
 
@@ -794,7 +817,7 @@ class Client
      */
     public function modifyRun($threadId, $runId, $data)
     {
-        $this->headers[] = 'OpenAI-Beta: assistants=v1';
+        $this->headers[] = 'OpenAI-Beta: assistants=v2';
         $url = Url::threadsUrl() . '/' . $threadId . '/runs/' . $runId;
         $this->baseUrl($url);
 
@@ -809,7 +832,7 @@ class Client
      */
     public function listRuns($threadId, $query = [])
     {
-        $this->headers[] = 'OpenAI-Beta: assistants=v1';
+        $this->headers[] = 'OpenAI-Beta: assistants=v2';
         $url = Url::threadsUrl() . '/' . $threadId . '/runs';
         if (count($query) > 0) {
             $url .= '?' . http_build_query($query);
@@ -828,7 +851,7 @@ class Client
      */
     public function submitToolOutputs($threadId, $runId, $outputs)
     {
-        $this->headers[] = 'OpenAI-Beta: assistants=v1';
+        $this->headers[] = 'OpenAI-Beta: assistants=v2';
         $url = Url::threadsUrl() . '/' . $threadId . '/runs/' . $runId . '/submit_tool_outputs';
         $this->baseUrl($url);
 
@@ -843,7 +866,7 @@ class Client
      */
     public function cancelRun($threadId, $runId)
     {
-        $this->headers[] = 'OpenAI-Beta: assistants=v1';
+        $this->headers[] = 'OpenAI-Beta: assistants=v2';
         $url = Url::threadsUrl() . '/' . $threadId . '/runs/' . $runId . '/cancel';
         $this->baseUrl($url);
 
@@ -857,7 +880,7 @@ class Client
      */
     public function createThreadAndRun($data)
     {
-        $this->headers[] = 'OpenAI-Beta: assistants=v1';
+        $this->headers[] = 'OpenAI-Beta: assistants=v2';
         $url = Url::threadsUrl() . '/runs';
         $this->baseUrl($url);
 
@@ -873,7 +896,7 @@ class Client
      */
     public function retrieveRunStep($threadId, $runId, $stepId)
     {
-        $this->headers[] = 'OpenAI-Beta: assistants=v1';
+        $this->headers[] = 'OpenAI-Beta: assistants=v2';
         $url = Url::threadsUrl() . '/' . $threadId . '/runs/' . $runId . '/steps/' . $stepId;
         $this->baseUrl($url);
 
@@ -889,7 +912,7 @@ class Client
      */
     public function listRunSteps($threadId, $runId, $query = [])
     {
-        $this->headers[] = 'OpenAI-Beta: assistants=v1';
+        $this->headers[] = 'OpenAI-Beta: assistants=v2';
         $url = Url::threadsUrl() . '/' . $threadId . '/runs/' . $runId . '/steps';
         if (count($query) > 0) {
             $url .= '?' . http_build_query($query);
@@ -909,13 +932,24 @@ class Client
 
     /**
      * @param string $proxy
+     * @return Client
      */
     public function setProxy(string $proxy)
     {
-        if ($proxy && strpos($proxy, '://') === false) {
-            $proxy = 'https://' . $proxy;
-        }
         $this->proxy = $proxy;
+
+        return $this;
+    }
+
+    /**
+     * @param string $credentials
+     * @return Client
+     */
+    public function setProxyAuth(string $credentials)
+    {
+        $this->proxyAuth = $credentials;
+
+        return $this;
     }
 
     /**
@@ -977,11 +1011,11 @@ class Client
      */
     private function sendRequest(string $url, string $method, array $opts = [])
     {
-        $apiKey = (array_key_exists('api_key', $opts) && !empty($opts['api_key'])) ? $opts['api_key'] : $this->apiKey;
-        unset($opts['api_key']);
-
         $post_fields = json_encode($opts);
-        $headers = array_merge($this->headers, ['Authorization: Bearer '.$apiKey]);
+
+        $headers = array_merge($this->headers, [
+            'Authorization: Bearer '.$this->apiKey
+        ]);
 
         if (array_key_exists('file', $opts) || array_key_exists('image', $opts)) {
             $headers = array_merge($headers, [$this->contentTypes["multipart/form-data"]]);
@@ -1011,6 +1045,10 @@ class Client
             $curl_info[CURLOPT_PROXY] = $this->proxy;
         }
 
+        if (!empty($this->proxyAuth)) {
+            $curl_info[CURLOPT_PROXYUSERPWD] = $this->proxyAuth;
+        }
+
         if (array_key_exists('stream', $opts) && $opts['stream']) {
             $curl_info[CURLOPT_WRITEFUNCTION] = $this->stream_method;
         }
@@ -1023,11 +1061,11 @@ class Client
         $info = curl_getinfo($curl);
         $this->curlInfo = $info;
 
-        curl_close($curl);
-
         if (!$response) {
             throw new Exception(curl_error($curl));
         }
+
+        curl_close($curl);
 
         return $response;
     }

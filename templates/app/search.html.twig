@@ -8,19 +8,27 @@
 {% block body %}
 <div class="container p-3">
     <form class="gpt-search-form" action="/gpt/search" method="post" enctype="multipart/form-data" onsubmit="event.preventDefault()">
-        <div class="row pb-3">
+        <div class="row pb-2">
             <div class="col">
                 <div class="form-group">
                     <label for="gpt_api_key">API Key:</label>
-                    <input type="password" required value="" class="form-control" id="gpt_api_key" name="gpt_api_key">
+                    <input type="text" required value="" class="form-control" id="gpt_api_key" name="gpt_api_key">
                 </div>
             </div>
+            <div class="col account-id-group">
+                <div class="form-group">
+                    <label for="account_id">Account ID:</label>
+                    <input type="text" required value="" class="form-control" id="account_id" name="account_id">
+                </div>
+            </div>
+        </div>
+        <div class="row pb-3">
             <div class="col">
                 <div class="col-lg">
                     <label for="gpt_service">GPT Service:</label>
                     <select class="form-control" id="gpt_service" name="gpt_service">
-                        <option value="openai">OpenAI</option>
-                        <option value="yandex-gpt" disabled>Yandex GPT</option>
+                        <option value="openai" {{ (searchOption.gptService == 'openai') ? 'selected' : '' }}>OpenAI</option>
+                        <option value="cloudflare" {{ (searchOption.gptService == 'cloudflare') ? 'selected' : '' }}>Cloudflare Workers AI/Vectorize</option>
                     </select>
                 </div>
             </div>
@@ -62,11 +70,28 @@
                             <div class="row mb-2">
                                 <div class="col-sm">
                                     <label for="gpt_embedding_model">Embedding Model:</label>
-                                    <select class="form-control" id="gpt_embedding_model" name="gpt_embedding_model">
-                                        <option value="text-embedding-3-small" {{ (searchOption.embeddingModel == 'text-embedding-3-small') ? 'selected' : '' }}>text-embedding-3-small</option>
-                                        <option value="text-embedding-3-large" {{ (searchOption.embeddingModel == 'text-embedding-3-large') ? 'selected' : '' }}>text-embedding-3-large</option>
-                                        <option value="text-embedding-ada-002" {{ (searchOption.embeddingModel == 'text-embedding-ada-002') ? 'selected' : '' }}>text-embedding-ada-002</option>
+                                    <select class="form-control" id="openai_gpt_embedding_model" name="gpt_embedding_model">
+                                        {% for openaiEmbeddingsModel in openaiEmbeddingsModels%}
+                                            <option value="{{ openaiEmbeddingsModel }}" {{ (searchOption.embeddingModel == openaiEmbeddingsModel) ? 'selected' : '' }}>{{ openaiEmbeddingsModel }}</option>
+                                        {% endfor %}
                                     </select>
+                                    <select class="form-control" id="cloudflare_gpt_embedding_model" name="gpt_embedding_model">
+                                        {% for cloudflareEmbeddingsModel in cloudflareEmbeddingsModels%}
+                                            <option value="{{ cloudflareEmbeddingsModel }}" {{ (searchOption.embeddingModel == cloudflareEmbeddingsModel) ? 'selected' : '' }}>{{ cloudflareEmbeddingsModel }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="row mb-2 cloudflare-index-group">
+                                <div class="col-sm">
+                                    <div class="form-group">
+                                        <label for="index">Index:</label>
+                                        <select class="form-control" id="index" name="index">
+                                            {% for cloudflareIndex in cloudflareIndexes %}
+                                                <option value="{{ cloudflareIndex.name }}" {{ (searchOption.cloudflareIndex is not null and searchOption.cloudflareIndex.id == cloudflareIndex.id) ? 'selected' : '' }}>{{ cloudflareIndex.name }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
                                 </div>
                             </div>
 
@@ -89,9 +114,15 @@
                             <div class="row mb-2">
                                 <div class="col-sm">
                                     <label for="gpt_model">GPT Model:</label>
-                                    <select class="form-control" id="gpt_model" name="gpt_model">
-                                        <option value="gpt-3.5-turbo" {{ (searchOption.chatModel == 'gpt-3.5-turbo') ? 'selected' : '' }}>gpt-3.5-turbo</option>
-                                        <option value="gpt-4" {{ (searchOption.chatModel == 'gpt-4') ? 'selected' : '' }}>gpt-4</option>
+                                    <select class="form-control" id="openai_gpt_model" name="gpt_model">
+                                        {% for openaiGptModel in openaiGptModels%}
+                                            <option value="{{ openaiGptModel }}" {{ (searchOption.chatModel == openaiGptModel) ? 'selected' : '' }}>{{ openaiGptModel }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <select class="form-control" id="cloudflare_gpt_model" name="gpt_model">
+                                        {% for cloudflareGptModel in cloudflareGptModels%}
+                                            <option value="{{ cloudflareGptModel }}" {{ (searchOption.chatModel == cloudflareGptModel) ? 'selected' : '' }}>{{ cloudflareGptModel }}</option>
+                                        {% endfor %}
                                     </select>
                                 </div>
                             </div>

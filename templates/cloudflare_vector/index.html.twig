@@ -1,0 +1,91 @@
+{% extends 'base.html.twig' %}
+
+{% block stylesheets %}
+    {{ parent() }}
+{% endblock %}
+
+{% block body %}
+    <div class="container p-3">
+        <div class="row mb-3">
+            <form method="get">
+                <label for="index">Cloudflare Index:</label>
+                <select id="index" name="index" class="form-control" onchange="this.form.submit()">
+                    <option></option>
+                    {% for index in cloudflareIndexes %}
+                        <option value="{{ index.name }}" {{ app.request.get('index') == index.name ? 'selected' : '' }}>{{ index.name }}</option>
+                    {% endfor %}
+                </select>
+            </form>
+        </div>
+        <div class="row">
+            {% for flashMessage in app.session.flashbag.get('success') %}
+                <div class="alert alert-success" role="alert">{{ flashMessage }}</div>
+            {% endfor %}
+            {##}
+            {% for flashMessage in app.session.flashbag.get('error') %}
+                <div class="alert alert-danger" role="alert">{{ flashMessage }}</div>
+            {% endfor %}
+        </div>
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                <tr>
+                    <th scope="col">Id</th>
+                    <th scope="col">Type</th>
+                    <th scope="col">Index</th>
+                    <th scope="col">Link</th>
+                    <th scope="col">Created At</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for vector in paginator %}
+                    <tr>
+                        <td>{{ vector.vectorId }}</td>
+                        <td>{{ vector.type }}</td>
+                        <td>{{ vector.cloudflareIndex.name|default('-') }}</td>
+                        <td>
+                            {% if constant('App\\Entity\\Article::TYPE') == vector.type %}
+                                <a class="link-primary" href="{{ url('knowledgebase_article', {article: vector.article.id}) }}">{{ vector.article.articleTitle|default('Article #'~vector.article.id) }} }}</a>
+                            {% elseif constant('App\\Entity\\ArticleParagraph::TYPE') == vector.type %}
+                                <a class="link-primary" href="{{ url('knowledgebase_article_paragraph', {article: vector.article.id, articleParagraph: vector.articleParagraph.id}) }}">{{ vector.articleParagraph.paragraphTitle|default('Article Paragraph #'~vector.articleParagraph.id) }}</a>
+                            {% elseif constant('App\\Entity\\Template::TYPE') == vector.type %}
+                                <a class="link-primary" href="/templates/{{ vector.template.id }}">{{ vector.template.templateTitle|default('Template #'~vector.template.id) }}</a>
+                            {% endif %}
+                        </td>
+                        <td>{{ vector.createdAt|date('Y-m-d H:i')|default('-') }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% set _currentRoute = app.request.attributes.get('_route') %}
+        {% set _currentParams = app.request.query.all|merge(app.request.attributes.get('_route_params')) %}
+
+        {% if lastPage > 1 %}
+            <nav>
+                <ul class="pagination justify-content-center">
+                    <li class="page-item{{ page <= 1 ? ' disabled' : '' }}">
+                        <a class="page-link" href="{{ path(_currentRoute, _currentParams|merge({page: page - 1})) }}" aria-label="Prev">
+                            &laquo; Prev
+                        </a>
+                    </li>
+                    {% for i in 1..lastPage %}
+                        <li class="page-item {% if i == page %}active{% endif %}">
+                            <a class="page-link" href="{{ path(_currentRoute, _currentParams|merge({page: i})) }}">{{ i }}</a>
+                        </li>
+                    {% endfor %}
+                    <li class="page-item {{ page >= lastPage ? ' disabled' : '' }}">
+                        <a class="page-link" href="{{ path(_currentRoute, _currentParams|merge({page: page + 1})) }}" aria-label="Next">
+                            Next &raquo;
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        {% endif %}
+    </div>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+{% endblock %}

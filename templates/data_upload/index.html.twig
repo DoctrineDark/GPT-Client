@@ -8,9 +8,17 @@
     <div class="container p-3">
         <form class="vectorize-form" action="/gpt/vectorize" method="post" enctype="multipart/form-data" onsubmit="event.preventDefault()">
             <div class="row pb-3">
-                <div class="form-group">
-                    <label for="gpt_api_key">API Key:</label>
-                    <input type="password" required value="" class="form-control" id="gpt_api_key" name="gpt_api_key">
+                <div class="col">
+                    <div class="form-group">
+                        <label for="gpt_api_key">API Key:</label>
+                        <input type="text" required value="" class="form-control" id="gpt_api_key" name="gpt_api_key">
+                    </div>
+                </div>
+                <div class="col account-id-group">
+                    <div class="form-group">
+                        <label for="account_id">Account ID:</label>
+                        <input type="text" required value="" class="form-control" id="account_id" name="account_id">
+                    </div>
                 </div>
             </div>
             <div class="row pb-3">
@@ -18,18 +26,35 @@
                     <label for="gpt_service">GPT Service:</label>
                     <select class="form-control" id="gpt_service" name="gpt_service">
                         <option value="openai">OpenAI</option>
-                        <option value="yandex-gpt" disabled>Yandex GPT</option>
+                        <option value="cloudflare">Cloudflare Workers AI/Vectorize</option>
                     </select>
                 </div>
             </div>
             <div class="row pb-3">
                 <div class="col-sm">
                     <label for="gpt_embedding_model">Embedding Model:</label>
-                    <select class="form-control" id="gpt_embedding_model" name="gpt_embedding_model">
-                        <option value="text-embedding-3-small">text-embedding-3-small</option>
-                        <option value="text-embedding-3-large">text-embedding-3-large</option>
-                        <option value="text-embedding-ada-002">text-embedding-ada-002</option>
+                    <select class="form-control" id="openai_gpt_embedding_model" name="gpt_embedding_model">
+                        {% for openaiEmbeddingsModel in openaiEmbeddingsModels%}
+                            <option value="{{ openaiEmbeddingsModel }}">{{ openaiEmbeddingsModel }}</option>
+                        {% endfor %}
                     </select>
+                    <select class="form-control" id="cloudflare_gpt_embedding_model" name="gpt_embedding_model">
+                        {% for cloudflareEmbeddingsModel in cloudflareEmbeddingsModels%}
+                            <option value="{{ cloudflareEmbeddingsModel }}" {{ '@cf/baai/bge-base-en-v1.5' == cloudflareEmbeddingsModel ? 'selected' : '' }}>{{ cloudflareEmbeddingsModel }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="row pb-3 cloudflare-index-group">
+                <div class="col-sm">
+                    <div class="form-group">
+                        <label for="index">Index:</label>
+                        <select class="form-control" id="index" name="index">
+                            {% for cloudflareIndex in cloudflareIndexes %}
+                                <option value="{{ cloudflareIndex.name }}">{{ cloudflareIndex.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
                 </div>
             </div>
             <div class="row pb-3">

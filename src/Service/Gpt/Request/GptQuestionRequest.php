@@ -170,10 +170,11 @@ class GptQuestionRequest extends GptRequest
                 $message .= $this->bindVariables($template, [
                     'list' => $name,
                     'list_values' => implode(PHP_EOL, array_map(function($k, $v) {
-                        return ($k+1).') '.$v;
+                        //return ($k+1).') '.$v;
+                        return $v;
                     }, array_keys($values), $values))
                 ]);
-                $message .= PHP_EOL;
+                //$message .= PHP_EOL;
             }
         }
 
@@ -195,7 +196,7 @@ class GptQuestionRequest extends GptRequest
             $message .= $this->bindVariables($template, [
                 'checkbox' => $checkbox
             ]);
-            $message .= PHP_EOL;
+            //$message .= PHP_EOL;
         }
 
         return $message;
@@ -242,8 +243,8 @@ class GptQuestionRequest extends GptRequest
     {
         return 'По тексту сообщения клиента определи одно самое подходящее значение параметра "[checkbox]" и коротко сообщи его.'.PHP_EOL.
             'Варианты параметра:'.PHP_EOL.
-            '1) Да'.PHP_EOL.
-            '2) Нет.'.PHP_EOL;
+            '1'.PHP_EOL.
+            '0.'.PHP_EOL;
     }
 
     /**

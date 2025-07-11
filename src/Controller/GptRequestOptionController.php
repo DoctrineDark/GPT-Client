@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Entity\GptRequestOption;
 use App\Repository\GptRequestOptionRepository;
+use App\Service\Gpt\AIService;
 use Exception;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -35,13 +36,16 @@ class GptRequestOptionController extends AbstractController
                 $constraints = [new Collection([
                     'allowExtraFields' => false,
                     'fields' => [
-                        'gpt_service' => [new Choice(['openai', 'yandex-gpt'])],
+                        'gpt_service' => [new Choice(AIService::list())],
                         'gpt_model' => [new Optional([new Type(['type' => 'string'])])],
                         'gpt_temperature' => [new Optional([new Type(['type' => 'numeric']), new Range(['min' => 0, 'max' => 2])])],
                         'gpt_max_tokens' => [new Optional([new Type(['type' => 'numeric'])])],
                         'gpt_token_limit' => [new Optional([new Type(['type' => 'numeric'])])],
                         'gpt_frequency_penalty' => [new Optional([new Type(['type' => 'numeric']), new Range(['min' => 0, 'max' => 2])])],
                         'gpt_presence_penalty' => [new Optional([new Type(['type' => 'numeric']), new Range(['min' => 0, 'max' => 2])])],
+                        'gpt_response_content_type' => [new Optional(new Type(['type' => 'string']))],
+                        'gpt_top_p' => [new Optional([new Type(['type' => 'numeric'])/*, new Range(['min' => 0, 'max' => 1])*/])],
+                        'gpt_top_k' => [new Optional([new Type(['type' => 'digit'])/*, new Range(['min' => 0, 'max' => 1])*/])],
                         'system_message' => [new Optional([new Type(['type' => 'string'])])],
                         'entry_template' => [new Optional(new Type(['type' => 'string']))],
                         'lists_message_template' => [new Optional(new Type(['type' => 'string']))],
@@ -68,7 +72,7 @@ class GptRequestOptionController extends AbstractController
             $clientMessageTemplate = $request->request->get('client_message_template');
             $rawRequestTemplate = $request->request->get('raw');
 
-            $option = $gptRequestOptionRepository->findOneBy(['gptService' => $request->request->get('gpt_service')]) ?? new GptRequestOption();
+            $option = $gptRequestOptionRepository->findOneBy([]) ?? new GptRequestOption();
 
             $option->setGptService($request->request->get('gpt_service'));
             $option->setModel($request->request->get('gpt_model'));
@@ -76,6 +80,9 @@ class GptRequestOptionController extends AbstractController
             $option->setMaxTokens($request->request->get('gpt_max_tokens'));
             $option->setPromptTokenLimit($request->request->get('gpt_token_limit'));
             $option->setFrequencyPenalty($request->request->get('gpt_frequency_penalty'));
+            $option->setResponseContentType($request->request->get('gpt_response_content_type'));
+            $option->setTopP($request->request->get('gpt_top_p'));
+            $option->setTopK($request->request->get('gpt_top_k'));
             $option->setPresencePenalty($request->request->get('gpt_presence_penalty'));
             $option->setSystemMessage($request->request->get('system_message'));
             $option->setEntryTemplate($request->request->get('entry_template'));

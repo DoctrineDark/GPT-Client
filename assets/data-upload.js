@@ -1,5 +1,56 @@
 $(document).ready(function ()
 {
+    // Options form
+    var gptServiceElement = $('#gpt_service');
+    var gptService = gptServiceElement.val();
+
+    updateOptionsForm(gptService);
+
+    gptServiceElement.on('change', function () {
+        gptService = gptServiceElement.val();
+
+        updateOptionsForm(gptService);
+    });
+
+    function updateOptionsForm(gptService)
+    {
+        var openaiGptEmbeddingModelSelect = $('#openai_gpt_embedding_model');
+        var cloudflareGptEmbeddingModelSelect = $('#cloudflare_gpt_embedding_model');
+
+        var switchElementVisibility = function(e, bool) {
+            if(bool) { e.removeClass('d-none'); }
+            else { e.addClass('d-none'); }
+
+            e.attr('disabled', !bool);
+        };
+
+        switch (gptService) {
+            case 'cloudflare':
+                switchElementVisibility(openaiGptEmbeddingModelSelect, false);
+                switchElementVisibility(cloudflareGptEmbeddingModelSelect, true);
+
+                $('.account-id-group').removeClass('d-none');
+                $('.account-id-group').find('input').attr('required', true);
+
+                $('.cloudflare-index-group').removeClass('d-none');
+                $('.cloudflare-index-group').find('select').attr('required', true);
+
+                break;
+
+            default:
+                switchElementVisibility(openaiGptEmbeddingModelSelect, true);
+                switchElementVisibility(cloudflareGptEmbeddingModelSelect, false);
+
+                $('.account-id-group').addClass('d-none');
+                $('.account-id-group').find('input').attr('required', false);
+
+                $('.cloudflare-index-group').addClass('d-none');
+                $('.cloudflare-index-group').find('select').attr('required', false);
+
+                break;
+        }
+    }
+
     $('.data-upload-form').submit(function (e)
     {
         e.preventDefault();

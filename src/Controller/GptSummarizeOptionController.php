@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Entity\GptSummarizeOption;
 use App\Repository\GptSummarizeOptionRepository;
+use App\Service\Gpt\AIService;
 use Exception;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -35,7 +36,7 @@ class GptSummarizeOptionController extends AbstractController
                 $constraints = [new Collection([
                     'allowExtraFields' => false,
                     'fields' => [
-                        'gpt_service' => [new Choice(['openai', 'yandex-gpt'])],
+                        'gpt_service' => [new Choice([AIService::list()])],
                         'gpt_model' => [new Type(['type' => 'string'])],
                         'gpt_temperature' => [new Optional([new Type(['type' => 'numeric']), new Range(['min' => 0, 'max' => 2])])],
                         'gpt_max_tokens' => [new Optional([new Type(['type' => 'numeric'])])],

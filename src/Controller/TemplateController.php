@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\Entity\Template;
+use App\Repository\CloudflareIndexRepository;
 use App\Service\VectorSearch\RedisSearcher;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Tools\Pagination\Paginator;
@@ -19,15 +20,14 @@ class TemplateController extends AbstractController
         $this->redisSearcher = $redisSearcher;
     }
 
-    public function index(EntityManagerInterface $entityManager, Request $request) : Response
+    public function index(EntityManagerInterface $entityManager, Request $request, CloudflareIndexRepository $cloudflareIndexRepository) : Response
     {
-        $dql = 'select t from App\Entity\Template t';
-        $query = $entityManager->createQuery($dql)
-            ->setFirstResult(0)
-            ->setMaxResults(7);
+        $limit = max($request->get('limit', 50), 1);
+        $page = max($request->get('page', 1), 1);
 
-        $limit = 50;
-        $page = $request->get('page', 1);
+        $dql = 'select t from App\Entity\Template t';
+        $query = $entityManager->createQuery($dql);
+
         $paginator = new Paginator($query);
         $paginator->getQuery()
             ->setFirstResult($limit * ($page - 1))
@@ -42,15 +42,17 @@ class TemplateController extends AbstractController
             'total' => $total,
             'lastPage' => $lastPage,
             'page' => $page,
+            'cloudflareIndexes' => $cloudflareIndexRepository->findAll(),
         ]);
     }
 
-    public function show(Template $template) : Response
+    public function show(Template $template, CloudflareIndexRepository $cloudflareIndexRepository) : Response
     {
         return $this->render('template/show.html.twig', [
             'title' => $template->getTemplateTitle() ?? 'Template#'.$template->getId(),
             'template' => $template,
             'redisSearcher' => $this->redisSearcher,
+            'cloudflareIndexes' => $cloudflareIndexRepository->findAll(),
         ]);
     }
 }

@@ -54,6 +54,21 @@ class GptRequestOption
     private $presencePenalty;
 
     /**
+     * @ORM\Column(type="string", nullable=true)
+     */
+    private $responseContentType;
+
+    /**
+     * @ORM\Column(type="float", nullable=true)
+     */
+    private $topP;
+
+    /**
+     * @ORM\Column(type="integer", nullable=true)
+     */
+    private $topK;
+
+    /**
      * @ORM\Column(type="text", nullable=true)
      */
     private $systemMessage;
@@ -169,6 +184,42 @@ class GptRequestOption
     public function setPresencePenalty(?float $presencePenalty): self
     {
         $this->presencePenalty = $presencePenalty;
+
+        return $this;
+    }
+
+    public function getResponseContentType(): ?string
+    {
+        return $this->responseContentType;
+    }
+
+    public function setResponseContentType(?string $responseContentType): self
+    {
+        $this->responseContentType = $responseContentType;
+
+        return $this;
+    }
+
+    public function getTopP(): ?float
+    {
+        return $this->topP;
+    }
+
+    public function setTopP(?float $topP): self
+    {
+        $this->topP = $topP;
+
+        return $this;
+    }
+
+    public function getTopK(): ?int
+    {
+        return $this->topK;
+    }
+
+    public function setTopK(?int $topK): self
+    {
+        $this->topK = $topK;
 
         return $this;
     }

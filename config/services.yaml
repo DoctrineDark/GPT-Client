@@ -55,6 +55,39 @@ services:
     App\Service\OpenAI\Client:
         arguments:
             $apiKey: '%env(OPENAI_API_KEY)%'
+        calls:
+            - [setProxy, ['%env(OPENAI_PROXY)%']]
+            - [setProxyAuth, ['%env(OPENAI_PROXY_AUTH)%']]
+
+    App\Service\YandexGpt\Client:
+        arguments:
+            $apiKey: '%env(YANDEXGPT_API_KEY)%'
+        calls:
+            - [setProxy, ['%env(YANDEX_GPT_PROXY)%']]
+            - [setProxyAuth, ['%env(YANDEX_GPT_PROXY_AUTH)%']]
+
+    App\Service\Gemini\Client:
+        arguments:
+            $apiKey: '%env(GEMINI_API_KEY)%'
+        calls:
+            - [setProxy, ['%env(GEMINI_PROXY)%']]
+            - [setProxyAuth, ['%env(GEMINI_PROXY_AUTH)%']]
+
+    App\Service\Cloudflare\WorkersAI\Client:
+        arguments:
+            $accountId: '%env(CLOUDFLARE_WORKERS_AI_ACCOUNT_ID)%'
+            $apiKey: '%env(CLOUDFLARE_WORKERS_AI_API_TOKEN)%'
+        calls:
+            - [setProxy, ['%env(CLOUDFLARE_WORKERS_AI_PROXY)%']]
+            - [setProxyAuth, ['%env(CLOUDFLARE_WORKERS_AI_PROXY_AUTH)%']]
+
+    App\Service\Cloudflare\Vectorize\Client:
+        arguments:
+            $accountId: '%env(CLOUDFLARE_VECTORIZE_ACCOUNT_ID)%'
+            $apiKey: '%env(CLOUDFLARE_VECTORIZE_API_TOKEN)%'
+        calls:
+            - [setProxy, ['%env(CLOUDFLARE_VECTORIZE_PROXY)%']]
+            - [setProxyAuth, ['%env(CLOUDFLARE_VECTORIZE_PROXY_AUTH)%']]
 
     App\Service\OpenAI\Tokenizer\Tokenizer:
         arguments:
