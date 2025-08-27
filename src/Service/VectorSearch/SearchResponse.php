@@ -11,4 +11,6 @@ class SearchResponse
     public $entity;
 
     public $distance;
+
+    public $score;
 }

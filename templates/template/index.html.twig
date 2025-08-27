@@ -8,11 +8,22 @@
     <div class="container p-3">
         <div class="row mb-3">
             <form method="get">
-                <label for="index">Cloudflare Index:</label>
-                <select id="index" name="index" class="form-control" onchange="this.form.submit()">
+                <label for="cloudflare-index">Cloudflare Index:</label>
+                <select id="cloudflare-index" name="cloudflareIndex" class="form-control" onchange="this.form.submit()">
                     <option></option>
-                    {% for index in cloudflareIndexes %}
-                        <option value="{{ index.name }}" {{ app.request.get('index') == index.name ? 'selected' : '' }}>{{ index.name }}</option>
+                    {% for cloudflareIndex in cloudflareIndexes %}
+                        <option value="{{ cloudflareIndex.name }}" {{ app.request.get('cloudflareIndex') == cloudflareIndex.name ? 'selected' : '' }}>{{ cloudflareIndex.name }}</option>
+                    {% endfor %}
+                </select>
+            </form>
+        </div>
+        <div class="row mb-3">
+            <form method="get">
+                <label for="openSearch-index">OpenSearch Index:</label>
+                <select id="openSearch-index" name="openSearchIndex" class="form-control" onchange="this.form.submit()">
+                    <option></option>
+                    {% for openSearchIndex in openSearchIndexes %}
+                        <option value="{{ openSearchIndex.name }}" {{ app.request.get('openSearchIndex') == openSearchIndex.name ? 'selected' : '' }}>{{ openSearchIndex.name }}</option>
                     {% endfor %}
                 </select>
             </form>
@@ -23,6 +34,7 @@
                 <tr>
                     <th scope="col">Vectorized</th>
                     <th scope="col">Cloudflare Vector</th>
+                    <th scope="col">OpenSearch Vector</th>
                     <th scope="col">ID</th>
                     <th scope="col">External ID</th>
                     <th scope="col">Template Title</th>
@@ -39,8 +51,16 @@
                             {% endif %}
                         </td>
                         <td>
-                            {% set index = app.request.get('index') %}
-                            {% if template.cloudflareVectors|filter(vector => vector.cloudflareIndex.name == index)|length > 0 %}
+                            {% set cloudflareIndex = app.request.get('cloudflareIndex') %}
+                            {% if template.cloudflareVectors|filter(vector => vector.cloudflareIndex.name == cloudflareIndex)|length > 0 %}
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="green" class="bi bi-check" viewBox="0 0 16 16"><path d="M10.97 4.97a.75.75 0 0 1 1.07 1.05l-3.99 4.99a.75.75 0 0 1-1.08.02L4.324 8.384a.75.75 0 1 1 1.06-1.06l2.094 2.093 3.473-4.425z"/></svg>
+                            {% else %}
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="red" class="bi bi-x" viewBox="0 0 16 16"><path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708"/></svg>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% set openSearchIndex = app.request.get('openSearchIndex') %}
+                            {% if template.openSearchVectors|filter(vector => vector.openSearchIndex.name == openSearchIndex)|length > 0 %}
                                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="green" class="bi bi-check" viewBox="0 0 16 16"><path d="M10.97 4.97a.75.75 0 0 1 1.07 1.05l-3.99 4.99a.75.75 0 0 1-1.08.02L4.324 8.384a.75.75 0 1 1 1.06-1.06l2.094 2.093 3.473-4.425z"/></svg>
                             {% else %}
                                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="red" class="bi bi-x" viewBox="0 0 16 16"><path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708"/></svg>

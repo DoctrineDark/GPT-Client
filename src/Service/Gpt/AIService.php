@@ -6,6 +6,7 @@ use App\Service\Gpt\Request\GptAssistantRequest;
 use App\Service\Gpt\Request\GptEmbeddingRequest;
 use App\Service\Gpt\Request\GptKnowledgebaseRequest;
 use App\Service\Gpt\Request\GptQuestionRequest;
+use App\Service\Gpt\Request\GptSearchRequest;
 use App\Service\Gpt\Request\GptSummarizeRequest;
 use App\Service\Gpt\Response\GptAssistantResponse;
 use App\Service\Gpt\Response\GptEmbeddingResponse;
@@ -27,7 +28,8 @@ class AIService
             OpenAIClient::SERVICE,
             YandexGptClient::SERVICE,
             GeminiClient::SERVICE,
-            CloudflareClient::SERVICE
+            CloudflareClient::SERVICE,
+            BGEClient::SERVICE,
         ];
     }
 
@@ -121,16 +123,15 @@ class AIService
      * @param string $gptService
      * @param GptEmbeddingRequest $embeddingRequest
      * @param GptEmbeddingResponse $embeddingResponse
-     * @param int $vectorSearchResultCount
-     * @param float $vectorSearchDistanceLimit
+     * @param GptSearchRequest $gptSearchRequest
      * @return array<SearchResponse>
      * @throws \Exception
      */
-    public function search(string $gptService, GptEmbeddingRequest $embeddingRequest, GptEmbeddingResponse $embeddingResponse, int $vectorSearchResultCount = 2, float $vectorSearchDistanceLimit = 1.0)
+    public function search(string $gptService, GptEmbeddingRequest $embeddingRequest, GptEmbeddingResponse $embeddingResponse, GptSearchRequest $gptSearchRequest)
     {
         foreach ($this->gptServices as $gptClient) {
             if ($gptClient->supports($gptService)) {
-                return $gptClient->search($embeddingRequest, $embeddingResponse, $vectorSearchResultCount, $vectorSearchDistanceLimit);
+                return $gptClient->search($embeddingRequest, $embeddingResponse, $gptSearchRequest);
             }
         }
 

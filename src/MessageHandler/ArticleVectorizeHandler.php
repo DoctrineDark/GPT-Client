@@ -5,12 +5,18 @@ namespace App\MessageHandler;
 use App\Entity\Article;
 use App\Entity\ArticleParagraph;
 use App\Entity\CloudflareVector;
+use App\Entity\OpenSearchIndex;
+use App\Entity\OpenSearchVector;
 use App\Message\ArticleVectorize;
 use App\Repository\ArticleRepository;
 use App\Repository\CloudflareIndexRepository;
 use App\Repository\CloudflareVectorRepository;
+use App\Repository\OpenSearchIndexRepository;
+use App\Repository\OpenSearchVectorRepository;
+use App\Service\OpenSearch\Client as OpenSearchClient;
 use App\Service\Cloudflare\Vectorize\Client as VectorizeClient;
 use App\Service\Gpt\AIService;
+use App\Service\Gpt\BGEClient;
 use App\Service\Gpt\CloudflareClient;
 use App\Service\Gpt\Exception\GptServiceException;
 use App\Service\Gpt\OpenAIClient;
@@ -28,22 +34,28 @@ final class ArticleVectorizeHandler implements MessageHandlerInterface
     private $articleRepository;
     private $cloudflareIndexRepository;
     private $cloudflareVectorRepository;
+    private $openSearchIndexRepository;
+    private $openSearchVectorRepository;
     private $AIService;
     private $redisSearcher;
     private $tokenizer;
     private $vectorizeClient;
+    private $openSearchClient;
     private $vectorizerLogger;
 
-    public function __construct(EntityManagerInterface $entityManager, ArticleRepository $articleRepository, CloudflareIndexRepository $cloudflareIndexRepository, CloudflareVectorRepository $cloudflareVectorRepository, AIService $AIService, RedisSearcher $redisSearcher, Tokenizer $tokenizer, VectorizeClient $vectorizeClient, LoggerInterface $vectorizerLogger)
+    public function __construct(EntityManagerInterface $entityManager, ArticleRepository $articleRepository, CloudflareIndexRepository $cloudflareIndexRepository, CloudflareVectorRepository $cloudflareVectorRepository, OpenSearchIndexRepository $openSearchIndexRepository, OpenSearchVectorRepository $openSearchVectorRepository, AIService $AIService, RedisSearcher $redisSearcher, Tokenizer $tokenizer, VectorizeClient $vectorizeClient, OpenSearchClient $openSearchClient, LoggerInterface $vectorizerLogger)
     {
         $this->entityManager = $entityManager;
         $this->articleRepository = $articleRepository;
         $this->cloudflareIndexRepository = $cloudflareIndexRepository;
         $this->cloudflareVectorRepository = $cloudflareVectorRepository;
+        $this->openSearchIndexRepository = $openSearchIndexRepository;
+        $this->openSearchVectorRepository = $openSearchVectorRepository;
         $this->AIService = $AIService;
         $this->redisSearcher = $redisSearcher;
         $this->tokenizer = $tokenizer;
         $this->vectorizeClient = $vectorizeClient;
+        $this->openSearchClient = $openSearchClient;
         $this->vectorizerLogger = $vectorizerLogger;
     }
 
@@ -57,6 +69,7 @@ final class ArticleVectorizeHandler implements MessageHandlerInterface
             $gptEmbeddingModel = $message->getGptEmbeddingModel();
             $index = $message->getIndex();
             $cloudflareIndex = $this->cloudflareIndexRepository->findOneBy(['name' => $index]);
+            $openSearchIndex = $this->openSearchIndexRepository->findOneBy(['name' => $index]);
             $gptMaxTokensPerChunk = $message->getGptMaxTokensPerChunk();
 
             $article = $this->articleRepository->find($articleId);
@@ -222,6 +235,73 @@ final class ArticleVectorizeHandler implements MessageHandlerInterface
                             $this->vectorizerLogger->info('ArticleParagraph#'.$articleParagraph->getId().' has been vectorized. Vector ID: '.$cloudflareVector->getVectorId());
                         } else {
                             $this->vectorizerLogger->warning('ArticleParagraph#'.$articleParagraph->getId().' has NOT been vectorized. Vector ID: '.$cloudflareVector->getVectorId().' already exists.');
+                        }
+                    }
+
+                    break;
+
+                case BGEClient::SERVICE:
+                    $articleTitle = $article->getArticleTitle();
+                    $articleParagraphs = $article->getParagraphs();
+
+                    /** @var ArticleParagraph $articleParagraph */
+                    foreach ($articleParagraphs as $articleParagraph) {
+                        $articleParagraphId = $articleParagraph->getId();
+                        $articleParagraphTitle = $articleParagraph->getParagraphTitle();
+                        $articleParagraphContent = $articleParagraph->getParagraphContent();
+
+                        $openSearchVector = $this->openSearchVectorRepository->findOneBy([
+                            'type' => ArticleParagraph::TYPE,
+                            'articleParagraph' => $articleParagraph,
+                            'openSearchIndex' => $openSearchIndex,
+                        ]);
+
+                        if (!$openSearchVector) {
+                            // Get Embeddings
+                            $promptEmbeddingRequest = (new GptEmbeddingRequest())
+                                ->setModel($gptEmbeddingModel)
+                                ->setPrompt($articleTitle . PHP_EOL . $articleParagraphTitle . PHP_EOL . $articleParagraphContent);
+
+                            $embedding = $this->AIService->embedding($gptService, $promptEmbeddingRequest);
+
+                            // Store Embeddings
+                            $vector = $this->openSearchClient->insertVector($index, [
+                                'id' => ArticleParagraph::TYPE.'_'.$articleParagraphId,
+                                OpenSearchIndex::TEXT_PROPERTY => $articleParagraph->getParagraphTitle() . ' ' . $articleParagraph->getParagraphContent(),
+                                OpenSearchIndex::EMBEDDING_PROPERTY => $embedding->embedding,
+                                'metadata' => [
+                                    'id' => $articleParagraphId,
+                                    'type' => ArticleParagraph::TYPE,
+                                    'title' => $articleParagraph->getParagraphTitle(),
+                                    'content' => $articleParagraph->getParagraphContent()
+                                ],
+                            ]);
+
+                            // Log
+                            $this->vectorizerLogger->debug('VECTOR');
+                            $this->vectorizerLogger->debug($vector);
+
+                            $vector = json_decode($vector, 1);
+
+                            if (isset($vector['error'])) {
+                                throw new GptServiceException($vector['error']['reason']);
+                            }
+
+                            // Save OpenSearchVector
+                            $openSearchVector = (new OpenSearchVector())
+                                ->setVectorId($vector['_id'])
+                                ->setType(ArticleParagraph::TYPE)
+                                ->setArticle($article)
+                                ->setArticleParagraph($articleParagraph)
+                                ->setOpenSearchIndex($openSearchIndex);
+
+                            $this->entityManager->persist($openSearchVector);
+                            $this->entityManager->flush();
+
+                            // Log
+                            $this->vectorizerLogger->info('ArticleParagraph#'.$articleParagraph->getId().' has been vectorized. OpenSearch Vector ID: '.$openSearchVector->getVectorId());
+                        } else {
+                            $this->vectorizerLogger->warning('ArticleParagraph#'.$articleParagraph->getId().' has NOT been vectorized. OpenSearch Vector ID: '.$openSearchVector->getVectorId().' already exists.');
                         }
                     }
 

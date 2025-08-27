@@ -4,9 +4,12 @@ namespace App\Controller;
 
 use App\Entity\CloudflareIndex;
 use App\Entity\GptSearchOption;
+use App\Entity\OpenSearchIndex;
 use App\Repository\CloudflareIndexRepository;
 use App\Repository\GptSearchOptionRepository;
+use App\Repository\OpenSearchIndexRepository;
 use App\Service\Gpt\AIService;
+use App\Service\Gpt\BGEClient;
 use App\Service\Gpt\CloudflareClient;
 use App\Validator\EntityExist;
 use Exception;
@@ -39,7 +42,7 @@ class GptSearchOptionController extends AbstractController
         $this->normalizer = $normalizer;
     }
 
-    public function save(Request $request, GptSearchOptionRepository $gptSearchOptionRepository, CloudflareIndexRepository $cloudflareIndexRepository)
+    public function save(Request $request, GptSearchOptionRepository $gptSearchOptionRepository, CloudflareIndexRepository $cloudflareIndexRepository, OpenSearchIndexRepository $openSearchIndexRepository)
     {
         try {
             $constraintViolation = function(ValidatorInterface $validator, array $haystack): ConstraintViolationListInterface {
@@ -47,16 +50,14 @@ class GptSearchOptionController extends AbstractController
                     'allowExtraFields' => false,
                     'fields' => [
                         'gpt_service' => [new Choice(AIService::list())],
+                        'search_mode' => [new Optional([new Choice(['knn', 'hybrid'])])],
                         'gpt_embedding_model' => [new Optional([new Type(['type' => 'string'])])],
                         'gpt_model' => [new Optional([new Type(['type' => 'string'])])],
-                        'index' => [new Optional([ /*new Expression([
-                            'expression' => 'gpt_service == cloudflare_service && null != value',
-                            'values' => [
-                                'gpt_service' => $haystack['gpt_service'],
-                                'cloudflare_service' => CloudflareClient::SERVICE
-                            ],
-                            'message' => 'Field is required when GPT-Service is "[cloudflare_service]"',
-                        ]),*/ new EntityExist(CloudflareIndex::class, 'name')])],
+                        'index' => [
+                            ((CloudflareClient::SERVICE === $haystack['gpt_service']) ? new EntityExist(CloudflareIndex::class, 'name') :
+                                ((BGEClient::SERVICE === $haystack['gpt_service']) ? new EntityExist(OpenSearchIndex::class, 'name') :
+                                    new Optional([new Type(['type' => 'string'])])))
+                        ],
                         'gpt_temperature' => [new Optional([new Type(['type' => 'numeric']), new Range(['min' => 0, 'max' => 2])])],
                         'gpt_max_tokens' => [new Optional([new Type(['type' => 'numeric'])])],
                         'gpt_token_limit' => [new Optional([new Type(['type' => 'numeric'])])],
@@ -64,6 +65,9 @@ class GptSearchOptionController extends AbstractController
                         'gpt_presence_penalty' => [new Optional([new Type(['type' => 'numeric']), new Range(['min' => 0, 'max' => 2])])],
                         'vector_search_result_count' => [new Optional([new Type(['type' => 'numeric'])])],
                         'vector_search_distance_limit' => [new Optional([new Type(['type' => 'numeric'])])],
+                        'content_boost' => [new Optional([new Type(['type' => 'numeric']), new Range(['min' => 0, 'max' => 10])])],
+                        'embedding_boost' => [new Optional([new Type(['type' => 'numeric']), new Range(['min' => 0, 'max' => 10])])],
+                        'min_score' => [new Optional([new Type(['type' => 'numeric'])])],
                         'user_message_template' => [new Optional([new Type(['type' => 'string'])])],
                         'system_message' => [new Optional([new Type(['type' => 'string'])])]
                     ],
@@ -83,15 +87,23 @@ class GptSearchOptionController extends AbstractController
                 throw new Exception('Validation failed: '. implode(' ', $messages));
             }
 
-            $cloudflareIndex = $cloudflareIndexRepository->findOneBy(['name' => $request->request->get('index')]);
+            $gptService = $request->request->get('gpt_service');
+
+            $cloudflareIndex = CloudflareClient::SERVICE === $gptService ? $cloudflareIndexRepository->findOneBy(['name' => $request->request->get('index')]) : null;
+            $openSearchIndex = BGEClient::SERVICE === $gptService ? $openSearchIndexRepository->findOneBy(['name' => $request->request->get('index')]) : null;
 
             $option = $gptSearchOptionRepository->findOneBy([]) ?? new GptSearchOption();
 
-            $option->setGptService($request->request->get('gpt_service'));
+            $option->setGptService($gptService);
             $option->setEmbeddingModel($request->request->get('gpt_embedding_model'));
             $option->setCloudflareIndex($cloudflareIndex);
+            $option->setOpenSearchIndex($openSearchIndex);
+            $option->setSearchMode($request->request->get('search_mode'));
+            $option->setContentBoost($request->request->get('content_boost'));
+            $option->setEmbeddingBoost($request->request->get('embedding_boost'));
+            $option->setMinScore($request->request->get('min_score'));
             $option->setVectorSearchResultCount($request->request->get('vector_search_result_count'));
-            $option->setVectorSearchDistanceLimit($request->request->get('vector_search_distance_limit'));
+            $option->setVectorSearchDistanceLimit($request->request->get('vector_search_distance_limit', 1));
             $option->setChatModel($request->request->get('gpt_model'));
             $option->setTemperature($request->request->get('gpt_temperature'));
             $option->setMaxTokens($request->request->get('gpt_max_tokens'));
@@ -108,8 +120,12 @@ class GptSearchOptionController extends AbstractController
                             'id',
                             'gptService',
                             'embeddingModel',
+                            'searchMode',
                             'vectorSearchResultCount',
                             'vectorSearchDistanceLimit',
+                            'min_score',
+                            'content_boost',
+                            'embedding_boost',
                             'chatModel',
                             'temperature',
                             'maxTokens',
@@ -123,6 +139,14 @@ class GptSearchOptionController extends AbstractController
                                 'description',
                                 'dimensions',
                                 'metric',
+                                'createdAt',
+                                'updatedAt'
+                            ],
+                            'openSearchIndex' => [
+                                'id',
+                                'name',
+                                'dimensions',
+                                'analyzer',
                                 'createdAt',
                                 'updatedAt'
                             ],

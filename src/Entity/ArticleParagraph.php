@@ -56,9 +56,15 @@ class ArticleParagraph
      */
     private $updated_at;
 
+    /**
+     * @ORM\OneToMany(targetEntity=OpenSearchVector::class, mappedBy="articleParagraph")
+     */
+    private $openSearchVectors;
+
     public function __construct()
     {
         $this->cloudflareVectors = new ArrayCollection();
+        $this->openSearchVectors = new ArrayCollection();
     }
 
     /**
@@ -173,6 +179,36 @@ class ArticleParagraph
     public function setUpdatedAt(?DateTimeInterface $updated_at): self
     {
         $this->updated_at = $updated_at;
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, OpenSearchVector>
+     */
+    public function getOpenSearchVectors(): Collection
+    {
+        return $this->openSearchVectors;
+    }
+
+    public function addOpenSearchVector(OpenSearchVector $openSearchVector): self
+    {
+        if (!$this->openSearchVectors->contains($openSearchVector)) {
+            $this->openSearchVectors[] = $openSearchVector;
+            $openSearchVector->setArticleParagraph($this);
+        }
+
+        return $this;
+    }
+
+    public function removeOpenSearchVector(OpenSearchVector $openSearchVector): self
+    {
+        if ($this->openSearchVectors->removeElement($openSearchVector)) {
+            // set the owning side to null (unless already changed)
+            if ($openSearchVector->getArticleParagraph() === $this) {
+                $openSearchVector->setArticleParagraph(null);
+            }
+        }
 
         return $this;
     }

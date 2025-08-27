@@ -30,7 +30,7 @@ class Client
         ];
 
         $this->headers = [
-            $this->contentTypes["application/json"],
+            //$this->contentTypes["application/json"],
             //"Authorization: Bearer $OPENAI_API_KEY",
         ];
     }
@@ -66,6 +66,17 @@ class Client
             'gpt-4-turbo',
             'gpt-4o',
             'gpt-4o-mini',
+            'o3-mini',
+            'o3',
+            'o1',
+            'o1-pro',
+            '04-mini',
+            'gpt-4.1-nano',
+            'gpt-4.1-mini',
+            'gpt-4.1',
+            'gpt-5-nano',
+            'gpt-5-mini',
+            'gpt-5',
         ];
     }
 

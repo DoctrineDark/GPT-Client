@@ -6,6 +6,7 @@ use App\Entity\Article;
 use App\Entity\ArticleParagraph;
 use App\Entity\Template;
 use App\Repository\CloudflareIndexRepository;
+use App\Repository\OpenSearchIndexRepository;
 use App\Service\VectorSearch\RedisSearcher;
 use Doctrine\ORM\EntityManager;
 use Doctrine\ORM\EntityManagerInterface;
@@ -47,13 +48,15 @@ class DataUploadController extends AbstractController
         $this->redisSearcher = $redisSearcher;
     }
 
-    public function index(CloudflareIndexRepository $cloudflareIndexRepository): Response
+    public function index(CloudflareIndexRepository $cloudflareIndexRepository, OpenSearchIndexRepository $openSearchIndexRepository): Response
     {
         return $this->render('data_upload/index.html.twig', [
             'title' => 'Data Upload',
             'openaiEmbeddingsModels' => ['text-embedding-3-small', 'text-embedding-3-large', 'text-embedding-ada-002'],
             'cloudflareEmbeddingsModels' => (new \App\Service\Cloudflare\WorkersAI\Client('', ''))->getTextEmbeddingsModels(),
-            'cloudflareIndexes' => $cloudflareIndexRepository->findAll()
+            'cloudflareIndexes' => $cloudflareIndexRepository->findAll(),
+            'bgeEmbeddingsModels' => (new \App\Service\BGE\Client(''))->embeddingModels(),
+            'openSearchIndexes' => $openSearchIndexRepository->findAll()
         ]);
     }
 
@@ -93,7 +96,8 @@ class DataUploadController extends AbstractController
                         foreach ($articleItems as $rawArticle) {
                             if(is_array($rawArticle)) {
                                 // Validate article
-                                $errors = $this->validateArticle($this->validator, $rawArticle);
+                                //$errors = $this->validateArticle($this->validator, $rawArticle);
+                                $errors = $this->validateArticle2($this->validator, $rawArticle);
 
                                 if(count($errors) > 0) {
                                     $messages = [];
@@ -104,9 +108,8 @@ class DataUploadController extends AbstractController
                                     throw new \Exception('File \''.$articleFile->getClientOriginalName().'\' validation failed: '. implode(' ', $messages));
                                 }
 
-                                $article = $entityManager->getRepository(Article::class)->findOneBy(['external_id' => $rawArticle['kb_article']['article_id']]) ??
-                                    new Article();
-
+                                /*
+                                $article = $entityManager->getRepository(Article::class)->findOneBy(['external_id' => $rawArticle['kb_article']['article_id']]) ?? new Article();
                                 $article->setExternalId($rawArticle['kb_article']['article_id']);
                                 $article->setExternalSectionId($rawArticle['kb_article']['section_id']);
                                 $article->setArticleTitle($rawArticle['kb_article']['article_title']);
@@ -114,8 +117,17 @@ class DataUploadController extends AbstractController
                                 $article->setAccessType($rawArticle['kb_article']['access_type']);
                                 $article->setActive($rawArticle['kb_article']['active']);
                                 $article->setCreatedAt(new \DateTime($rawArticle['kb_article']['created_at']));
-
                                 $article = $this->parseArticle($entityManager, $article, $rawArticle['kb_article']['article_content']);
+                                */
+
+                                $article = $entityManager->getRepository(Article::class)->findOneBy(['external_id' => $rawArticle['knowledge_article_id']]) ?? new Article();
+                                $article->setExternalId($rawArticle['knowledge_article_id']);
+                                $article->setExternalSectionId($rawArticle['knowledge_section_id']);
+                                $article->setArticleTitle($rawArticle['title']);
+                                $article->setArticleTags(str_replace(['{', '}'], '', $rawArticle['tags']));
+                                $article->setActive(true);
+                                $article->setCreatedAt((new \DateTime)->setTimestamp($rawArticle['create_tstamp']));
+                                $article = $this->parseArticle($entityManager, $article, $rawArticle['content']);
 
                                 $entityManager->persist($article);
 
@@ -332,7 +344,7 @@ class DataUploadController extends AbstractController
                     new All([
                         'constraints' => [
                             new File([
-                                'maxSize' => '32M',
+                                'maxSize' => '64M',
                                 'mimeTypes' => ['txt' => 'text/*'],
                             ])
                         ],
@@ -343,7 +355,7 @@ class DataUploadController extends AbstractController
                     new All([
                         'constraints' => [
                             new File([
-                                'maxSize' => '32M',
+                                'maxSize' => '64M',
                                 'mimeTypes' => ['txt' => 'text/*'],
                             ])
                         ],
@@ -385,6 +397,25 @@ class DataUploadController extends AbstractController
                         'updated_at' => []
                     ]
                 ])],
+            ]
+        ])];
+
+        return $validator->validate($haystack, $constraints);
+    }
+
+    private function validateArticle2(ValidatorInterface $validator, array $haystack) : ConstraintViolationListInterface
+    {
+        $constraints = [new Collection([
+            'allowExtraFields' => false,
+            'fields' => [
+                'knowledge_article_id' => [new Type(['type' => 'integer'])],
+                'knowledge_section_id' => [new Optional(new Type(['type' => 'integer']))],
+                'knowledge_section_arr_id' => [new Optional([new Type(['type' => 'string'])])],
+                'title' => [new Type(['type' => 'string'])],
+                'content' => [new Type(['type' => 'string'])],
+                'tags' => [new Type(['type' => 'string'])],
+                'create_tstamp' => [new Type(['type' => 'integer'])],
+                'update_tstamp' => [new Type(['type' => 'integer'])]
             ]
         ])];
 

@@ -10,6 +10,7 @@ use App\Entity\GptRequestOption;
 use App\Entity\GptSearchOption;
 use App\Entity\GptSummarizeOption;
 use App\Entity\Message;
+use App\Entity\OpenSearchIndex;
 use App\Entity\Template;
 use App\Message\Vectorize;
 use App\Repository\CloudflareIndexRepository;
@@ -19,7 +20,9 @@ use App\Repository\GptRequestOptionRepository;
 use App\Repository\GptSearchOptionRepository;
 use App\Repository\GptSummarizeOptionRepository;
 use App\Repository\MessageRepository;
+use App\Repository\OpenSearchIndexRepository;
 use App\Service\Gpt\AIService;
+use App\Service\Gpt\BGEClient;
 use App\Service\Gpt\CloudflareClient;
 use App\Service\Gpt\GeminiClient;
 use App\Service\Gpt\OpenAIClient;
@@ -27,11 +30,13 @@ use App\Service\Gpt\Request\GptAssistantRequest;
 use App\Service\Gpt\Request\GptEmbeddingRequest;
 use App\Service\Gpt\Request\GptKnowledgebaseRequest;
 use App\Service\Gpt\Request\GptQuestionRequest;
+use App\Service\Gpt\Request\GptSearchRequest;
 use App\Service\Gpt\Response\GptResponse;
 use App\Service\Gpt\Request\GptSummarizeRequest;
 use App\Service\Gpt\YandexGptClient;
 use App\Service\OpenAI\Tokenizer\Tokenizer;
 use App\Service\VectorSearch\RedisSearcher;
+use App\Validator\AtLeastOneOf;
 use App\Validator\EntityExist;
 use Doctrine\ORM\EntityManagerInterface;
 use Exception;
@@ -47,6 +52,7 @@ use Symfony\Component\Validator\Constraints\All;
 use Symfony\Component\Validator\Constraints\Callback;
 use Symfony\Component\Validator\Constraints\Choice;
 use Symfony\Component\Validator\Constraints\Collection;
+use Symfony\Component\Validator\Constraints\EqualTo;
 use Symfony\Component\Validator\Constraints\Expression;
 use Symfony\Component\Validator\Constraints\Json;
 use Symfony\Component\Validator\Constraints\Optional;
@@ -110,7 +116,11 @@ class AppController extends AbstractController
 
         return $this->render('app/request.html.twig', [
             'title' => 'GPT-Requester',
-            'aiServices' => AIService::list(),
+            'aiServices' => [
+                OpenAIClient::SERVICE,
+                YandexGptClient::SERVICE,
+                GeminiClient::SERVICE,
+            ]/*AIService::list()*/,
             'requestOption' => $requestOption,
             'openaiModels' => (new \App\Service\OpenAI\Client(''))->models(),
             'yandexGptModels' => (new \App\Service\YandexGpt\Client(''))->models(),
@@ -132,18 +142,25 @@ class AppController extends AbstractController
         ]);
     }
 
-    public function gptSearchPage(GptSearchOptionRepository $gptSearchOptionRepository, CloudflareIndexRepository $cloudflareIndexRepository): Response
+    public function gptSearchPage(GptSearchOptionRepository $gptSearchOptionRepository, CloudflareIndexRepository $cloudflareIndexRepository, OpenSearchIndexRepository $openSearchIndexRepository): Response
     {
         $searchOption = $gptSearchOptionRepository->findOneBy([]) ?? new GptSearchOption();
 
         return $this->render('app/search.html.twig', [
             'title' => 'GPT-Searcher',
+            'aiServices' => [
+                OpenAIClient::SERVICE,
+                CloudflareClient::SERVICE,
+                BGEClient::SERVICE,
+            ],
             'searchOption' => $searchOption,
             'openaiGptModels' => (new \App\Service\OpenAI\Client(''))->models(),
             'openaiEmbeddingsModels' => ['text-embedding-3-small', 'text-embedding-3-large', 'text-embedding-ada-002'],
             'cloudflareGptModels' => (new \App\Service\Cloudflare\WorkersAI\Client('', ''))->getTextGenerationModels(),
             'cloudflareEmbeddingsModels' => (new \App\Service\Cloudflare\WorkersAI\Client('', ''))->getTextEmbeddingsModels(),
-            'cloudflareIndexes' => $cloudflareIndexRepository->findAll()
+            'cloudflareIndexes' => $cloudflareIndexRepository->findAll(),
+            'openSearchIndexes' => $openSearchIndexRepository->findAll(),
+            'bgeEmbeddingsModels' => (new \App\Service\BGE\Client(''))->embeddingModels()
         ]);
     }
 
@@ -392,14 +409,11 @@ class AppController extends AbstractController
                         'gpt_api_key' => [new Optional([new Type(['type' => 'string'])])],
                         'gpt_service' => [new Choice(AIService::list())],
                         'gpt_embedding_model' => [new Optional([new Type(['type' => 'string'])])],
-                        'index'=> [new Optional([ /*new Expression([
-                            'expression' => 'gpt_service == cloudflare_service && null != value',
-                            'values' => [
-                                'gpt_service' => $haystack['gpt_service'],
-                                'cloudflare_service' => CloudflareClient::SERVICE
-                            ],
-                            'message' => 'Field is required when GPT-Service is "[cloudflare_service]"',
-                        ]),*/ new EntityExist(CloudflareIndex::class, 'name')])],
+                        'index' => [
+                            ((CloudflareClient::SERVICE === $haystack['gpt_service']) ? new EntityExist(CloudflareIndex::class, 'name') :
+                                ((BGEClient::SERVICE === $haystack['gpt_service']) ? new EntityExist(OpenSearchIndex::class, 'name') :
+                                    new Optional([new Type(['type' => 'string'])])))
+                        ],
                         'gpt_max_tokens_per_chunk' => [new Optional([new Type(['type' => 'numeric'])])],
                     ],
                 ])];
@@ -468,9 +482,14 @@ class AppController extends AbstractController
                         'gpt_api_key' => [new Type(['type' => 'string'])],
                         'account_id' => [new Optional([new Type(['type' => 'string'])])],
                         'gpt_service' => [new Choice(AIService::list())],
+                        'search_mode' => [new Optional([new Choice(['knn', 'hybrid'])])],
                         'gpt_embedding_model' => [new Optional([new Type(['type' => 'string'])])],
                         'gpt_model' => [new Optional([new Type(['type' => 'string'])])],
-                        'index'=> [(CloudflareClient::SERVICE === $haystack['gpt_service']) ? new EntityExist(CloudflareIndex::class, 'name') : new Optional([new Type(['type' => 'string'])])],
+                        'index' => [
+                            ((CloudflareClient::SERVICE === $haystack['gpt_service']) ? new EntityExist(CloudflareIndex::class, 'name') :
+                                ((BGEClient::SERVICE === $haystack['gpt_service']) ? new EntityExist(OpenSearchIndex::class, 'name') :
+                                    new Optional([new Type(['type' => 'string'])])))
+                        ],
                         'gpt_temperature' => [new Optional([new Type(['type' => 'numeric']), new Range(['min' => 0, 'max' => 2])])],
                         'gpt_max_tokens' => [new Optional([new Type(['type' => 'numeric'])])],
                         'gpt_token_limit' => [new Optional([new Type(['type' => 'numeric'])])],
@@ -478,6 +497,9 @@ class AppController extends AbstractController
                         'gpt_presence_penalty' => [new Optional([new Type(['type' => 'numeric']), new Range(['min' => 0, 'max' => 2])])],
                         'vector_search_result_count' => [new Optional([new Type(['type' => 'numeric'])])],
                         'vector_search_distance_limit' => [new Optional([new Type(['type' => 'numeric'])])],
+                        'min_score' => [new Optional([new Type(['type' => 'numeric'])])],
+                        'content_boost' => [new Optional([new Type(['type' => 'numeric']), new Range(['min' => 0, 'max' => 10])])],
+                        'embedding_boost' => [new Optional([new Type(['type' => 'numeric']), new Range(['min' => 0, 'max' => 10])])],
                         'user_message_template' => [new Optional([new Type(['type' => 'string'])])],
                         'question' => [new Optional([new Type(['type' => 'string'])])],
                         'system_message' => [new Optional([new Type(['type' => 'string'])])]
@@ -502,32 +524,43 @@ class AppController extends AbstractController
             $gptApiKey = $request->request->get('gpt_api_key');
             $accountId = $request->request->get('account_id');
             $gptEmbeddingModel = $request->request->get('gpt_embedding_model', $this->gptEmbeddingModel);
-            $gptModel = $request->request->get('gpt_model', $this->gptModel);
             $index = $request->request->get('index');
+            $searchMode = $request->request->get('search_mode');
+            $contentBoost = $request->request->get('content_boost');
+            $embeddingBoost = $request->request->get('embedding_boost');
+            $vectorSearchResultCount = $request->request->get('vector_search_result_count', 2);
+            $vectorSearchDistanceLimit = $request->request->get('vector_search_distance_limit', 0.99);
+            $minScore = $request->request->get('min_score');
+            $gptModel = $request->request->get('gpt_model', $this->gptModel);
             $gptTemperature = $request->request->get('gpt_temperature', $this->gptTemperature);
             $gptMaxTokens = $request->request->get('gpt_max_tokens', $this->gptMaxTokens);
             $gptFrequencyPenalty = $request->request->get('gpt_frequency_penalty', $this->gptFrequencyPenalty);
             $gptPresencePenalty = $request->request->get('gpt_presence_penalty', $this->gptPresencePenalty);
             $gptResponseFormatType = $request->request->get('gpt_response_format_type', $this->gptResponseFormatType);
 
-            $vectorSearchResultCount = $request->request->get('vector_search_result_count', 2);
-            $vectorSearchDistanceLimit = $request->request->get('vector_search_distance_limit', 0.99);
-
             $question = $request->request->get('question');
             $systemMessage = $request->request->get('system_message', '');
             $userMessageTemplate = $request->request->get('user_message_template');
-
-            // Gpt Request
 
             $promptEmbeddingRequest = (new GptEmbeddingRequest())
                 ->setApiKey($gptApiKey)
                 ->setAccountId($accountId)
                 ->setModel($gptEmbeddingModel)
                 ->setIndex($index)
-                ->setPrompt($question);
+                ->setPrompt($question)
+            ;
+
+            $gptSearchRequest = (new GptSearchRequest())
+                ->setVectorSearchResultCount($vectorSearchResultCount)
+                ->setVectorSearchDistanceLimit($vectorSearchDistanceLimit)
+                ->setMinScore($minScore)
+                ->setSearchMode($searchMode)
+                ->setContentBoost($contentBoost)
+                ->setEmbeddingBoost($embeddingBoost)
+            ;
 
             $promptEmbedding = $this->AIService->embedding($gptService, $promptEmbeddingRequest);
-            $searchResult = $this->AIService->search($gptService, $promptEmbeddingRequest, $promptEmbedding, $vectorSearchResultCount, $vectorSearchDistanceLimit);
+            $searchResult = $this->AIService->search($gptService, $promptEmbeddingRequest, $promptEmbedding, $gptSearchRequest);
 
             /**
              * Already involved in content Article Paragraphs

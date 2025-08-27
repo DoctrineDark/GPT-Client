@@ -265,8 +265,8 @@ class GptRequest
                             'content' => $this->userMessage,
                         ]
                     ],
-                    'temperature' => $this->temperature,
-                    'max_tokens' => $this->maxTokens,
+                    //'temperature' => $this->temperature,
+                    //'max_tokens' => $this->maxTokens,
                     'frequency_penalty' => $this->frequencyPenalty,
                     'presence_penalty' => $this->presencePenalty,
                     'response_format' => ['type' => $this->responseFormatType],

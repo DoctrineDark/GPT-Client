@@ -8,7 +8,7 @@
     <div class="container p-3">
         <form class="vectorize-form" action="/gpt/vectorize" method="post" enctype="multipart/form-data" onsubmit="event.preventDefault()">
             <div class="row pb-3">
-                <div class="col">
+                <div class="col api-key-group">
                     <div class="form-group">
                         <label for="gpt_api_key">API Key:</label>
                         <input type="text" required value="" class="form-control" id="gpt_api_key" name="gpt_api_key">
@@ -27,6 +27,7 @@
                     <select class="form-control" id="gpt_service" name="gpt_service">
                         <option value="openai">OpenAI</option>
                         <option value="cloudflare">Cloudflare Workers AI/Vectorize</option>
+                        <option value="bge">BGE/OpenSearch</option>
                     </select>
                 </div>
             </div>
@@ -43,15 +44,32 @@
                             <option value="{{ cloudflareEmbeddingsModel }}" {{ '@cf/baai/bge-base-en-v1.5' == cloudflareEmbeddingsModel ? 'selected' : '' }}>{{ cloudflareEmbeddingsModel }}</option>
                         {% endfor %}
                     </select>
+                    <select class="form-control" id="bge_gpt_embedding_model" name="gpt_embedding_model">
+                        {% for bgeEmbeddingsModel in bgeEmbeddingsModels%}
+                            <option value="{{ bgeEmbeddingsModel }}" selected>{{ bgeEmbeddingsModel }}</option>
+                        {% endfor %}
+                    </select>
                 </div>
             </div>
             <div class="row pb-3 cloudflare-index-group">
                 <div class="col-sm">
                     <div class="form-group">
-                        <label for="index">Index:</label>
+                        <label for="index">Cloudflare Index:</label>
                         <select class="form-control" id="index" name="index">
                             {% for cloudflareIndex in cloudflareIndexes %}
                                 <option value="{{ cloudflareIndex.name }}">{{ cloudflareIndex.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="row pb-3 opensearch-index-group">
+                <div class="col-sm">
+                    <div class="form-group">
+                        <label for="index">OpenSearch Index:</label>
+                        <select class="form-control" id="index" name="index">
+                            {% for openSearchIndex in openSearchIndexes %}
+                                <option value="{{ openSearchIndex.name }}">{{ openSearchIndex.name }}</option>
                             {% endfor %}
                         </select>
                     </div>

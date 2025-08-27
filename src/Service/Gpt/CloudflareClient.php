@@ -14,6 +14,7 @@ use App\Service\Gpt\Request\GptAssistantRequest;
 use App\Service\Gpt\Request\GptEmbeddingRequest;
 use App\Service\Gpt\Request\GptKnowledgebaseRequest;
 use App\Service\Gpt\Request\GptQuestionRequest;
+use App\Service\Gpt\Request\GptSearchRequest;
 use App\Service\Gpt\Request\GptSummarizeRequest;
 use App\Service\Gpt\Response\GptAssistantResponse;
 use App\Service\Gpt\Response\GptEmbeddingResponse;
@@ -85,22 +86,58 @@ class CloudflareClient implements Gpt
         $this->workersAIClient->setAccountId($request->getAccountId());
         $this->workersAIClient->setApiKey($request->getApiKey());
 
-        $responseJson = $this->workersAIClient->runModel($request->model, ['prompt' => $request->userMessage]);
-        $response = json_decode($responseJson, 1);
+        switch ($request->model) {
+            case '@cf/openai/gpt-oss-120b':
+            case '@cf/openai/gpt-oss-20b':
+                $responseJson = $this->workersAIClient->createModelResponse([
+                    'model' => $request->model,
+                    'input' => $request->systemMessage . PHP_EOL . $request->userMessage
+                ]);
+                $response = json_decode($responseJson, 1);
 
-        if (false === $response['success']) {
-            throw new GptServiceException(implode(' ', array_column($response['errors'], 'message')));
+                if (array_key_exists('error', $response)) {
+                    throw new GptServiceException($response['error']['message']);
+                }
+
+                /** @var GptResponse $gptResponse */
+                $gptResponse = $this->denormalizer->denormalize([
+                    'model' => $request->model,
+                    'datetime' => (new DateTime("now"))->format('Y-m-d H:i:s'),
+                    'message' => implode(PHP_EOL, array_merge(
+                        ...array_map(function ($item) {
+                            return array_column(
+                                array_filter($item['content'], function ($c) {
+                                    return isset($c['type']) && $c['type'] === 'output_text';
+                                }),
+                                'text'
+                            );
+                        }, $response['output'])
+                    )),
+                    'prompt_tokens' => $response['usage']['prompt_tokens'],
+                    'completion_tokens' => $response['usage']['completion_tokens'],
+                    'total_tokens' => $response['usage']['total_tokens'],
+                ], GptResponse::class);
+
+                break;
+
+            default:
+                $responseJson = $this->workersAIClient->runModel($request->model, ['prompt' => $request->systemMessage . PHP_EOL . $request->userMessage]);
+                $response = json_decode($responseJson, 1);
+
+                if (false === $response['success']) {
+                    throw new GptServiceException(implode(' ', array_column($response['errors'], 'message')));
+                }
+
+                /** @var GptResponse $gptResponse */
+                $gptResponse = $this->denormalizer->denormalize([
+                    'model' => $request->model,
+                    'datetime' => (new DateTime("now"))->format('Y-m-d H:i:s'),
+                    'message' => $response['result']['response'],
+                    'prompt_tokens' => $response['result']['usage']['prompt_tokens'],
+                    'completion_tokens' => $response['result']['usage']['completion_tokens'],
+                    'total_tokens' => $response['result']['usage']['total_tokens'],
+                ], GptResponse::class);
         }
-
-        /** @var GptResponse $gptResponse */
-        $gptResponse = $this->denormalizer->denormalize([
-            'model' => $request->model,
-            'datetime' => (new DateTime("now"))->format('Y-m-d H:i:s'),
-            'message' => $response['result']['response'],
-            'prompt_tokens' => $response['result']['usage']['prompt_tokens'],
-            'completion_tokens' => $response['result']['usage']['completion_tokens'],
-            'total_tokens' => $response['result']['usage']['total_tokens'],
-        ], GptResponse::class);
 
         // Save request
         $this->storeGptRequestHistory($this->gptRequestHistoryRepository, $gptResponse, $request->systemMessage, $request->userMessage);
@@ -138,19 +175,18 @@ class CloudflareClient implements Gpt
     /**
      * @param GptEmbeddingRequest $embeddingRequest
      * @param GptEmbeddingResponse $embeddingResponse
-     * @param int $vectorSearchResultCount
-     * @param float $vectorSearchDistanceLimit
+     * @param GptSearchRequest $gptSearchRequest
      * @return array<SearchResponse>
-     * @throws Exception
+     * @throws GptServiceException
      */
-    public function search(GptEmbeddingRequest $embeddingRequest, GptEmbeddingResponse $embeddingResponse, int $vectorSearchResultCount = 2, float $vectorSearchDistanceLimit = 1.0): array
+    public function search(GptEmbeddingRequest $embeddingRequest, GptEmbeddingResponse $embeddingResponse, GptSearchRequest $gptSearchRequest): array
     {
         $this->vectorizeClient->setAccountId($embeddingRequest->getAccountId());
         $this->vectorizeClient->setApiKey($embeddingRequest->getApiKey());
 
         $vector = $this->vectorizeClient->queryVectors($embeddingRequest->getIndex(), [
             'vector' => $embeddingResponse->embedding,
-            'topK' => (int) $vectorSearchResultCount,
+            'topK' => (int) $gptSearchRequest->getVectorSearchResultCount(),
             'returnMetadata' => 'all'
         ]);
         $vector = json_decode($vector, 1);

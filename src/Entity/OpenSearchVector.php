@@ -2,17 +2,16 @@
 
 namespace App\Entity;
 
-use App\Repository\CloudflareVectorRepository;
+use App\Repository\OpenSearchVectorRepository;
 use DateTime;
-use DateTimeInterface;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
- * @ORM\Entity(repositoryClass=CloudflareVectorRepository::class)
- * @ORM\Table(name="cloudflare_vectors")
+ * @ORM\Entity(repositoryClass=OpenSearchVectorRepository::class)
+ * @ORM\Table(name="opensearch_vectors")
  * @ORM\HasLifecycleCallbacks()
  */
-class CloudflareVector
+class OpenSearchVector
 {
     /**
      * @ORM\Id
@@ -22,14 +21,15 @@ class CloudflareVector
     private $id;
 
     /**
-     * @ORM\Column(type="string", length=255)
+     * @ORM\Column(type="string", length=255, nullable=true)
      */
     private $vectorId;
 
     /**
-     * @ORM\ManyToOne(targetEntity=CloudflareIndex::class, inversedBy="cloudflareVectors")
+     * @ORM\ManyToOne(targetEntity=OpenSearchIndex::class, inversedBy="openSearchVectors")
+     * @ORM\JoinColumn(name="opensearch_index_id", referencedColumnName="id", nullable="true")
      */
-    private $cloudflareIndex;
+    private $openSearchIndex;
 
     /**
      * @ORM\Column(type="string", length=255)
@@ -37,17 +37,17 @@ class CloudflareVector
     private $type;
 
     /**
-     * @ORM\ManyToOne(targetEntity=Article::class, inversedBy="cloudflareVectors")
+     * @ORM\ManyToOne(targetEntity=Article::class, inversedBy="openSearchVectors")
      */
     private $article;
 
     /**
-     * @ORM\ManyToOne(targetEntity=ArticleParagraph::class, inversedBy="cloudflareVectors")
+     * @ORM\ManyToOne(targetEntity=ArticleParagraph::class, inversedBy="openSearchVectors")
      */
     private $articleParagraph;
 
     /**
-     * @ORM\ManyToOne(targetEntity=Template::class, inversedBy="cloudflareVectors")
+     * @ORM\ManyToOne(targetEntity=Template::class, inversedBy="openSearchVectors")
      */
     private $template;
 
@@ -92,21 +92,21 @@ class CloudflareVector
         return $this->vectorId;
     }
 
-    public function setVectorId(string $vectorId): self
+    public function setVectorId(?string $vectorId): self
     {
         $this->vectorId = $vectorId;
 
         return $this;
     }
 
-    public function getCloudflareIndex(): ?CloudflareIndex
+    public function getOpenSearchIndex(): ?OpenSearchIndex
     {
-        return $this->cloudflareIndex;
+        return $this->openSearchIndex;
     }
 
-    public function setCloudflareIndex(?CloudflareIndex $cloudflareIndex): self
+    public function setOpenSearchIndex(?OpenSearchIndex $openSearchIndex): self
     {
-        $this->cloudflareIndex = $cloudflareIndex;
+        $this->openSearchIndex = $openSearchIndex;
 
         return $this;
     }
@@ -159,24 +159,24 @@ class CloudflareVector
         return $this;
     }
 
-    public function getCreatedAt(): ?DateTimeInterface
+    public function getCreatedAt(): ?\DateTimeInterface
     {
         return $this->createdAt;
     }
 
-    public function setCreatedAt(?DateTimeInterface $createdAt): self
+    public function setCreatedAt(?\DateTimeInterface $createdAt): self
     {
         $this->createdAt = $createdAt;
 
         return $this;
     }
 
-    public function getUpdatedAt(): ?DateTimeInterface
+    public function getUpdatedAt(): ?\DateTimeInterface
     {
         return $this->updatedAt;
     }
 
-    public function setUpdatedAt(?DateTimeInterface $updatedAt): self
+    public function setUpdatedAt(?\DateTimeInterface $updatedAt): self
     {
         $this->updatedAt = $updatedAt;
 

@@ -79,11 +79,17 @@ class Article
      */
     private $updated_at;
 
+    /**
+     * @ORM\OneToMany(targetEntity=OpenSearchVector::class, mappedBy="article")
+     */
+    private $openSearchVectors;
+
 
     public function __construct()
     {
         $this->paragraphs = new ArrayCollection();
         $this->cloudflareVectors = new ArrayCollection();
+        $this->openSearchVectors = new ArrayCollection();
     }
 
     /**
@@ -300,6 +306,36 @@ class Article
             // set the owning side to null (unless already changed)
             if ($cloudflareVector->getArticle() === $this) {
                 $cloudflareVector->setArticle(null);
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, OpenSearchVector>
+     */
+    public function getOpenSearchVectors(): Collection
+    {
+        return $this->openSearchVectors;
+    }
+
+    public function addOpenSearchVector(OpenSearchVector $openSearchVector): self
+    {
+        if (!$this->openSearchVectors->contains($openSearchVector)) {
+            $this->openSearchVectors[] = $openSearchVector;
+            $openSearchVector->setArticle($this);
+        }
+
+        return $this;
+    }
+
+    public function removeOpenSearchVector(OpenSearchVector $openSearchVector): self
+    {
+        if ($this->openSearchVectors->removeElement($openSearchVector)) {
+            // set the owning side to null (unless already changed)
+            if ($openSearchVector->getArticle() === $this) {
+                $openSearchVector->setArticle(null);
             }
         }
 

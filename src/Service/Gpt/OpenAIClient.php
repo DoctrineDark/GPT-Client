@@ -11,6 +11,7 @@ use App\Service\Gpt\Request\GptAssistantRequest;
 use App\Service\Gpt\Request\GptEmbeddingRequest;
 use App\Service\Gpt\Request\GptKnowledgebaseRequest;
 use App\Service\Gpt\Request\GptQuestionRequest;
+use App\Service\Gpt\Request\GptSearchRequest;
 use App\Service\Gpt\Request\GptSummarizeRequest;
 use App\Service\Gpt\Response\GptAssistantResponse;
 use App\Service\Gpt\Response\GptEmbeddingResponse;
@@ -268,6 +269,7 @@ class OpenAIClient implements Gpt
      * @return GptEmbeddingResponse
      * @throws ExceptionInterface
      * @throws GptServiceException
+     * @throws Exception
      */
     public function embedding(GptEmbeddingRequest $request): GptEmbeddingResponse
     {
@@ -282,6 +284,10 @@ class OpenAIClient implements Gpt
         $response = json_decode($responseJson, 1);
 
         if(array_key_exists('error', $response)) {
+            $this->logger->debug($responseJson);
+            $this->logger->debug(json_encode(['model' => $request->getModel(), 'input' => $request->getPrompt()]));
+            $this->logger->debug(json_encode($this->client->getCURLInfo()));
+
             throw new GptServiceException($response['error']['message']);
         }
 
@@ -303,13 +309,12 @@ class OpenAIClient implements Gpt
     /**
      * @param GptEmbeddingRequest $embeddingRequest
      * @param GptEmbeddingResponse $embeddingResponse
-     * @param int $vectorSearchResultCount
-     * @param float $vectorSearchDistanceLimit
+     * @param GptSearchRequest $gptSearchRequest
      * @return array<SearchResponse>
      */
-    public function search(GptEmbeddingRequest $embeddingRequest, GptEmbeddingResponse $embeddingResponse, int $vectorSearchResultCount = 2, float $vectorSearchDistanceLimit = 1.0): array
+    public function search(GptEmbeddingRequest $embeddingRequest, GptEmbeddingResponse $embeddingResponse, GptSearchRequest $gptSearchRequest): array
     {
-        $searchResult = $this->redisSearcher->search($embeddingResponse, $vectorSearchResultCount, $vectorSearchDistanceLimit);
+        $searchResult = $this->redisSearcher->search($embeddingResponse, $gptSearchRequest->getVectorSearchResultCount(), $gptSearchRequest->getVectorSearchDistanceLimit());
 
         return $searchResult;
     }

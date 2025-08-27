@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Entity\Template;
 use App\Repository\CloudflareIndexRepository;
+use App\Repository\OpenSearchIndexRepository;
 use App\Service\VectorSearch\RedisSearcher;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Tools\Pagination\Paginator;
@@ -20,7 +21,7 @@ class TemplateController extends AbstractController
         $this->redisSearcher = $redisSearcher;
     }
 
-    public function index(EntityManagerInterface $entityManager, Request $request, CloudflareIndexRepository $cloudflareIndexRepository) : Response
+    public function index(EntityManagerInterface $entityManager, Request $request, CloudflareIndexRepository $cloudflareIndexRepository, OpenSearchIndexRepository $openSearchIndexRepository) : Response
     {
         $limit = max($request->get('limit', 50), 1);
         $page = max($request->get('page', 1), 1);
@@ -43,6 +44,7 @@ class TemplateController extends AbstractController
             'lastPage' => $lastPage,
             'page' => $page,
             'cloudflareIndexes' => $cloudflareIndexRepository->findAll(),
+            'openSearchIndexes' => $openSearchIndexRepository->findAll(),
         ]);
     }
 

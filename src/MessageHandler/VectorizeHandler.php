@@ -11,6 +11,7 @@ use App\Repository\ArticleRepository;
 use App\Repository\TemplateRepository;
 use App\Service\Cloudflare\Vectorize\Client as VectorizeClient;
 use App\Service\Cloudflare\WorkersAI\Client as WorkersAIClient;
+use App\Service\Gpt\BGEClient;
 use App\Service\Gpt\CloudflareClient;
 use App\Service\Gpt\Exception\GptServiceException;
 use App\Service\Gpt\OpenAIClient;
@@ -101,6 +102,39 @@ final class VectorizeHandler implements MessageHandlerInterface
                     // Set Credentials
                     $this->vectorizeClient->setAccountId($accountId);
                     $this->vectorizeClient->setApiKey($gptApiKey);
+
+                    // Dispatch
+                    /** @var Article $article */
+                    foreach ($articleQuery->toIterable() as $article) {
+                        $articleId = $article->getId();
+                        $this->bus->dispatch(
+                            new ArticleVectorize($articleId, $gptService, $accountId, $gptApiKey, $gptEmbeddingModel, $index, $gptMaxTokensPerChunk),
+                            [
+                                new DelayStamp($this->delay),
+                            ]
+                        );
+
+                        $this->articleRepository->getEntityManager()->detach($article);
+                    }
+
+                    /**/
+
+                    /** @var Template $template */
+                    foreach ($templateQuery->toIterable() as $template) {
+                        $templateId = $template->getId();
+                        $this->bus->dispatch(
+                            new TemplateVectorize($templateId, $gptService, $accountId, $gptApiKey, $gptEmbeddingModel, $index, $gptMaxTokensPerChunk),
+                            [
+                                new DelayStamp($this->delay),
+                            ]
+                        );
+
+                        $this->templateRepository->getEntityManager()->detach($template);
+                    }
+
+                    break;
+
+                case BGEClient::SERVICE:
 
                     // Dispatch
                     /** @var Article $article */

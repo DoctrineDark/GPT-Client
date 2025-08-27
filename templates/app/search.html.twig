@@ -27,8 +27,9 @@
                 <div class="col-lg">
                     <label for="gpt_service">GPT Service:</label>
                     <select class="form-control" id="gpt_service" name="gpt_service">
-                        <option value="openai" {{ (searchOption.gptService == 'openai') ? 'selected' : '' }}>OpenAI</option>
-                        <option value="cloudflare" {{ (searchOption.gptService == 'cloudflare') ? 'selected' : '' }}>Cloudflare Workers AI/Vectorize</option>
+                        {% for aiService in aiServices %}
+                            <option value="{{ aiService }}" {{ (searchOption.gptService == aiService) ? 'selected' : '' }}>{{ aiService }}</option>
+                        {% endfor %}
                     </select>
                 </div>
             </div>
@@ -80,13 +81,18 @@
                                             <option value="{{ cloudflareEmbeddingsModel }}" {{ (searchOption.embeddingModel == cloudflareEmbeddingsModel) ? 'selected' : '' }}>{{ cloudflareEmbeddingsModel }}</option>
                                         {% endfor %}
                                     </select>
+                                    <select class="form-control" id="bge_gpt_embedding_model" name="gpt_embedding_model">
+                                        {% for bgeEmbeddingsModel in bgeEmbeddingsModels%}
+                                            <option value="{{ bgeEmbeddingsModel }}" {{ (searchOption.embeddingModel == bgeEmbeddingsModel) ? 'selected' : '' }}>{{ bgeEmbeddingsModel }}</option>
+                                        {% endfor %}
+                                    </select>
                                 </div>
                             </div>
                             <div class="row mb-2 cloudflare-index-group">
                                 <div class="col-sm">
                                     <div class="form-group">
-                                        <label for="index">Index:</label>
-                                        <select class="form-control" id="index" name="index">
+                                        <label for="cloudflare-index">Cloudflare Index:</label>
+                                        <select class="form-control" id="cloudflare-index" name="index">
                                             {% for cloudflareIndex in cloudflareIndexes %}
                                                 <option value="{{ cloudflareIndex.name }}" {{ (searchOption.cloudflareIndex is not null and searchOption.cloudflareIndex.id == cloudflareIndex.id) ? 'selected' : '' }}>{{ cloudflareIndex.name }}</option>
                                             {% endfor %}
@@ -94,7 +100,18 @@
                                     </div>
                                 </div>
                             </div>
-
+                            <div class="row mb-2 opensearch-index-group">
+                                <div class="col-sm">
+                                    <div class="form-group">
+                                        <label for="openSearch-index">OpenSearch Index:</label>
+                                        <select class="form-control" id="openSearch-index" name="index">
+                                            {% for openSearchIndex in openSearchIndexes %}
+                                                <option value="{{ openSearchIndex.name }}" {{ (searchOption.openSearchIndex is not null and searchOption.openSearchIndex.id == openSearchIndex.id) ? 'selected' : '' }}>{{ openSearchIndex.name }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
                             <div class="row mb-2">
                                 <div class="col-sm">
                                     <div class="form-group">
@@ -109,7 +126,42 @@
                                     </div>
                                 </div>
                             </div>
+                            <div class="row mb-2 min-score-group">
+                                <div class="col-sm">
+                                    <div class="form-group">
+                                        <label for="min_score">Minimal Score Threshold:</label>
+                                        <input type="text" value="{{ searchOption.minScore|default(0.1) }}" class="form-control" id="min_score" name="min_score">
+
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row mb-2 search-mode-group">
+                                <div class="col-sm">
+                                    <div class="form-group">
+                                        <label for="search_mode">Search Mode:</label>
+                                        <select class="form-control" id="search_mode" name="search_mode">
+                                            <option value="knn" {{ (searchOption.searchMode == 'knn') ? 'selected' : '' }}>k-NN</option>
+                                            <option value="hybrid" {{ (searchOption.searchMode  == 'hybrid') ? 'selected' : '' }}>Hybrid</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row mb-2 hybrid-mode-boost-group">
+                                <div class="col-sm">
+                                    <div class="form-group">
+                                        <label for="embedding_boost">Embedding Boost:</label>
+                                        <input type="text" value="{{ searchOption.embeddingBoost|default(1.0) }}" class="form-control" id="embedding_boost" name="embedding_boost">
+                                    </div>
+                                </div>
+                                <div class="col-sm">
+                                    <div class="form-group">
+                                        <label for="content_boost">Content Boost:</label>
+                                        <input type="text" value="{{ searchOption.contentBoost|default(1.0) }}" class="form-control" id="content_boost" name="content_boost">
+                                    </div>
+                                </div>
+                            </div>
                         </div>
+                        <div class="my-5"></div>
                         <div class="gpt-group">
                             <div class="row mb-2">
                                 <div class="col-sm">

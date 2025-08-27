@@ -53,9 +53,15 @@ class Template
      */
     private $updated_at;
 
+    /**
+     * @ORM\OneToMany(targetEntity=OpenSearchVector::class, mappedBy="template")
+     */
+    private $openSearchVectors;
+
     public function __construct()
     {
         $this->cloudflareVectors = new ArrayCollection();
+        $this->openSearchVectors = new ArrayCollection();
     }
 
     /**
@@ -168,6 +174,36 @@ class Template
             // set the owning side to null (unless already changed)
             if ($cloudflareVector->getTemplate() === $this) {
                 $cloudflareVector->setTemplate(null);
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, OpenSearchVector>
+     */
+    public function getOpenSearchVectors(): Collection
+    {
+        return $this->openSearchVectors;
+    }
+
+    public function addOpenSearchVector(OpenSearchVector $openSearchVector): self
+    {
+        if (!$this->openSearchVectors->contains($openSearchVector)) {
+            $this->openSearchVectors[] = $openSearchVector;
+            $openSearchVector->setTemplate($this);
+        }
+
+        return $this;
+    }
+
+    public function removeOpenSearchVector(OpenSearchVector $openSearchVector): self
+    {
+        if ($this->openSearchVectors->removeElement($openSearchVector)) {
+            // set the owning side to null (unless already changed)
+            if ($openSearchVector->getTemplate() === $this) {
+                $openSearchVector->setTemplate(null);
             }
         }
 

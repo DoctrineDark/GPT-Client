@@ -94,6 +94,9 @@ class Client
             '@cf/google/gemma-3-12b-it',
             '@cf/qwen/qwq-32b',
 
+            '@cf/openai/gpt-oss-120b',
+            '@cf/openai/gpt-oss-20b',
+
             //'@cf/baai/bge-small-en-v1.5',
             //'@cf/baai/bge-base-en-v1.5',
             //'@cf/baai/bge-large-en-v1.5',
@@ -147,7 +150,20 @@ class Client
      */
     public function runModel(string $model, array $options)
     {
-        $url = Url::runModel($this-> accountId, $model);
+        $url = Url::runModel($this->accountId, $model);
+        $response = $this->sendRequest($url, $options);
+
+        return $response;
+    }
+
+    /**
+     * @param array $options
+     * @return bool|string
+     * @throws Exception
+     */
+    public function createModelResponse(array $options)
+    {
+        $url = Url::createModelResponse($this->accountId);
         $response = $this->sendRequest($url, $options);
 
         return $response;

@@ -78,6 +78,31 @@ class GptSearchOption
      */
     private $cloudflareIndex;
 
+    /**
+     * @ORM\OneToOne(targetEntity=OpenSearchIndex::class, cascade={"persist", "remove"})
+     */
+    private $openSearchIndex;
+
+    /**
+     * @ORM\Column(type="string", length=255, nullable=true)
+     */
+    private $searchMode;
+
+    /**
+     * @ORM\Column(type="float", nullable=true)
+     */
+    private $contentBoost;
+
+    /**
+     * @ORM\Column(type="float", nullable=true)
+     */
+    private $embeddingBoost;
+
+    /**
+     * @ORM\Column(type="float", nullable=true)
+     */
+    private $minScore;
+
     /**/
 
     public function getId(): ?int
@@ -225,6 +250,66 @@ class GptSearchOption
     public function setCloudflareIndex(?CloudflareIndex $cloudflareIndex): self
     {
         $this->cloudflareIndex = $cloudflareIndex;
+
+        return $this;
+    }
+
+    public function getOpenSearchIndex(): ?OpenSearchIndex
+    {
+        return $this->openSearchIndex;
+    }
+
+    public function setOpenSearchIndex(?OpenSearchIndex $openSearchIndex): self
+    {
+        $this->openSearchIndex = $openSearchIndex;
+
+        return $this;
+    }
+
+    public function getSearchMode(): ?string
+    {
+        return $this->searchMode;
+    }
+
+    public function setSearchMode(?string $searchMode): self
+    {
+        $this->searchMode = $searchMode;
+
+        return $this;
+    }
+
+    public function getContentBoost(): ?float
+    {
+        return $this->contentBoost;
+    }
+
+    public function setContentBoost(?float $contentBoost): self
+    {
+        $this->contentBoost = $contentBoost;
+
+        return $this;
+    }
+
+    public function getEmbeddingBoost(): ?float
+    {
+        return $this->embeddingBoost;
+    }
+
+    public function setEmbeddingBoost(?float $embeddingBoost): self
+    {
+        $this->embeddingBoost = $embeddingBoost;
+
+        return $this;
+    }
+
+    public function getMinScore(): ?float
+    {
+        return $this->minScore;
+    }
+
+    public function setMinScore(?float $minScore): self
+    {
+        $this->minScore = $minScore;
 
         return $this;
     }

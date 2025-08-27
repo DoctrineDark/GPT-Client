@@ -6,6 +6,7 @@ use App\Entity\Article;
 use App\Entity\ArticleParagraph;
 use App\Entity\CloudflareVector;
 use App\Repository\CloudflareIndexRepository;
+use App\Repository\OpenSearchIndexRepository;
 use App\Service\VectorSearch\RedisSearcher;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Tools\Pagination\Paginator;
@@ -22,7 +23,7 @@ class ArticleController extends AbstractController
         $this->redisSearcher = $redisSearcher;
     }
 
-    public function index(EntityManagerInterface $entityManager, Request $request, CloudflareIndexRepository $cloudflareIndexRepository): Response
+    public function index(EntityManagerInterface $entityManager, Request $request, CloudflareIndexRepository $cloudflareIndexRepository, OpenSearchIndexRepository $openSearchIndexRepository): Response
     {
         $limit = max($request->get('limit', 50), 1);
         $page = max($request->get('page', 1), 1);
@@ -30,7 +31,8 @@ class ArticleController extends AbstractController
 
         $qb = $entityManager->createQueryBuilder();
         $qb->select('a')
-            ->from('App\Entity\Article', 'a');
+            ->from('App\Entity\Article', 'a')
+            ->orderBy('a.id', 'ASC');
             //->join('a.paragraphs', 'ap')
             //->join('ap.cloudflareVectors', 'cv');
 
@@ -49,16 +51,18 @@ class ArticleController extends AbstractController
             'lastPage' => $lastPage,
             'page' => $page,
             'cloudflareIndexes' => $cloudflareIndexRepository->findAll(),
+            'openSearchIndexes' => $openSearchIndexRepository->findAll(),
         ]);
     }
 
-    public function show(Article $article, CloudflareIndexRepository $cloudflareIndexRepository): Response
+    public function show(Article $article, CloudflareIndexRepository $cloudflareIndexRepository, OpenSearchIndexRepository $openSearchIndexRepository): Response
     {
         return $this->render('article/show.html.twig', [
             'title' => $article->getArticleTitle() ?? 'Article#'.$article->getId(),
             'article' => $article,
             'redisSearcher' => $this->redisSearcher,
             'cloudflareIndexes' => $cloudflareIndexRepository->findAll(),
+            'openSearchIndexes' => $openSearchIndexRepository->findAll(),
         ]);
     }
 }

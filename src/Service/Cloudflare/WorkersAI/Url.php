@@ -38,4 +38,16 @@ class Url
 
         return new self($url, $method, $headers);
     }
+
+    public static function createModelResponse(string $accountId): self
+    {
+        $url = self::ORIGIN . self::CLIENT . "/accounts/{$accountId}/ai/v1/responses";
+        $method = 'post';
+        $headers = [
+            'Accept: application/json',
+            'Content-Type: application/json',
+        ];
+
+        return new self($url, $method, $headers);
+    }
 }

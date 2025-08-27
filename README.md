@@ -12,3 +12,13 @@
 * Create a .env file from the .env.example file
 * Run `php bin/console doctrine:database:create`
 * Run `php bin/console doctrine:migrations:migrate`
+
+# Changelog
+### v1.0.0 - Jun 9, 2024
+- Init version
+
+###v1.0.1 - Jul 11, 2025
+- Added Cloudflare Workers AI + Vectorize search mode
+
+### v1.0.2 - Aug 28, 2025
+- Added bge-m3 + OpenSearch search mode

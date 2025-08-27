@@ -3,18 +3,24 @@
 namespace App\MessageHandler;
 
 use App\Entity\CloudflareVector;
+use App\Entity\OpenSearchIndex;
+use App\Entity\OpenSearchVector;
 use App\Entity\Template;
 use App\Message\TemplateVectorize;
 use App\Repository\CloudflareIndexRepository;
 use App\Repository\CloudflareVectorRepository;
+use App\Repository\OpenSearchIndexRepository;
+use App\Repository\OpenSearchVectorRepository;
 use App\Repository\TemplateRepository;
 use App\Service\Cloudflare\Vectorize\Client as VectorizeClient;
 use App\Service\Gpt\AIService;
+use App\Service\Gpt\BGEClient;
 use App\Service\Gpt\CloudflareClient;
 use App\Service\Gpt\Exception\GptServiceException;
 use App\Service\Gpt\OpenAIClient;
 use App\Service\Gpt\Request\GptEmbeddingRequest;
 use App\Service\OpenAI\Tokenizer\Tokenizer;
+use App\Service\OpenSearch\Client as OpenSearchClient;
 use App\Service\VectorSearch\Embedding;
 use App\Service\VectorSearch\RedisSearcher;
 use Doctrine\ORM\EntityManagerInterface;
@@ -27,23 +33,29 @@ final class TemplateVectorizeHandler implements MessageHandlerInterface
     private $templateRepository;
     private $cloudflareIndexRepository;
     private $cloudflareVectorRepository;
+    private $openSearchIndexRepository;
+    private $openSearchVectorRepository;
     private $AIService;
     private $redisSearcher;
     private $tokenizer;
     private $vectorizeClient;
+    private $openSearchClient;
     private $vectorizerLogger;
 
-    public function __construct(EntityManagerInterface $entityManager, TemplateRepository $templateRepository, CloudflareIndexRepository $cloudflareIndexRepository, CloudflareVectorRepository $cloudflareVectorRepository, AIService $AIService, RedisSearcher $redisSearcher, Tokenizer $tokenizer, VectorizeClient $vectorizeClient, LoggerInterface $vectorizerLogger)
+    public function __construct(EntityManagerInterface $entityManager, TemplateRepository $templateRepository, CloudflareIndexRepository $cloudflareIndexRepository, CloudflareVectorRepository $cloudflareVectorRepository, OpenSearchIndexRepository $openSearchIndexRepository, OpenSearchVectorRepository $openSearchVectorRepository, AIService $AIService, RedisSearcher $redisSearcher, Tokenizer $tokenizer, VectorizeClient $vectorizeClient, OpenSearchClient $openSearchClient, LoggerInterface $vectorizerLogger)
     {
         $this->entityManager = $entityManager;
         $this->templateRepository = $templateRepository;
         $this->cloudflareIndexRepository = $cloudflareIndexRepository;
         $this->cloudflareVectorRepository = $cloudflareVectorRepository;
+        $this->openSearchIndexRepository = $openSearchIndexRepository;
+        $this->openSearchVectorRepository = $openSearchVectorRepository;
         $this->AIService = $AIService;
         $this->redisSearcher = $redisSearcher;
         $this->tokenizer = $tokenizer;
         $this->vectorizeClient = $vectorizeClient;
         $this->vectorizerLogger = $vectorizerLogger;
+        $this->openSearchClient = $openSearchClient;
     }
 
     public function __invoke(TemplateVectorize $message)
@@ -56,6 +68,7 @@ final class TemplateVectorizeHandler implements MessageHandlerInterface
             $gptEmbeddingModel = $message->getGptEmbeddingModel();
             $index = $message->getIndex();
             $cloudflareIndex = $this->cloudflareIndexRepository->findOneBy(['name' => $index]);
+            $openSearchIndex = $this->openSearchIndexRepository->findOneBy(['name' => $index]);
             $gptMaxTokensPerChunk = $message->getGptMaxTokensPerChunk();
 
             $template = $this->templateRepository->find($templateId);
@@ -177,9 +190,69 @@ final class TemplateVectorizeHandler implements MessageHandlerInterface
                         $this->entityManager->flush();
 
                         // Log
-                        $this->vectorizerLogger->info('Template#'.$template->getId().' has been vectorized. Vector ID: '.$cloudflareVector->getVectorId());
+                        $this->vectorizerLogger->info('Template#'.$template->getId().' has been vectorized. Cloudflare Vector ID: '.$cloudflareVector->getVectorId());
                     } else {
-                        $this->vectorizerLogger->warning('Template#'.$template->getId().' has NOT been vectorized!. Vector ID: '.$cloudflareVector->getVectorId().' already exists.');
+                        $this->vectorizerLogger->warning('Template#'.$template->getId().' has NOT been vectorized!. Cloudflare Vector ID: '.$cloudflareVector->getVectorId().' already exists.');
+                    }
+
+                    break;
+
+                case BGEClient::SERVICE:
+                    $templateTitle = $template->getTemplateTitle();
+                    $templateContent = $template->getTemplateContent();
+
+                    $openSearchVector = $this->openSearchVectorRepository->findOneBy([
+                        'type' => Template::TYPE,
+                        'template' => $template,
+                        'openSearchIndex' => $openSearchIndex,
+                    ]);
+
+                    if (!$openSearchVector) {
+                        // Get Embeddings
+                        $promptEmbeddingRequest = (new GptEmbeddingRequest())
+                            ->setModel($gptEmbeddingModel)
+                            ->setPrompt($templateTitle . PHP_EOL . $templateContent);
+
+                        $embedding = $this->AIService->embedding($gptService, $promptEmbeddingRequest);
+
+                        // Store Embeddings
+
+                        $vector = $this->openSearchClient->insertVector($index, [
+                            'id' => Template::TYPE.'_'.$templateId,
+                            OpenSearchIndex::TEXT_PROPERTY => $template->getTemplateTitle() . ' ' . $template->getTemplateContent(),
+                            OpenSearchIndex::EMBEDDING_PROPERTY => $embedding->embedding,
+                            'metadata' => [
+                                'id' => $templateId,
+                                'type' => Template::TYPE,
+                                'title' => $template->getTemplateTitle(),
+                                'content' => $template->getTemplateContent()
+                            ],
+                        ]);
+
+                        // Log
+                        $this->vectorizerLogger->debug('VECTOR');
+                        $this->vectorizerLogger->debug($vector);
+
+                        $vector = json_decode($vector, 1);
+
+                        if (isset($vector['error'])) {
+                            throw new GptServiceException($vector['error']['reason']);
+                        }
+
+                        // Save OpenSearchVector
+                        $openSearchVector = (new OpenSearchVector())
+                            ->setVectorId($vector['_id'])
+                            ->setType(Template::TYPE)
+                            ->setTemplate($template)
+                            ->setOpenSearchIndex($openSearchIndex);
+
+                        $this->entityManager->persist($openSearchVector);
+                        $this->entityManager->flush();
+
+                        // Log
+                        $this->vectorizerLogger->info('Template#'.$template->getId().' has been vectorized. OpenSearch Vector ID: '.$openSearchVector->getVectorId());
+                    } else {
+                        $this->vectorizerLogger->warning('Template#'.$template->getId().' has NOT been vectorized!. OpenSearch Vector ID: '.$openSearchVector->getVectorId().' already exists.');
                     }
 
                     break;

@@ -1,0 +1,140 @@
+{% extends 'base.html.twig' %}
+
+{% block stylesheets %}
+    {{ parent() }}
+{% endblock %}
+
+{% block body %}
+    <div class="container p-3">
+        <div class="row">
+            {% for flashMessage in app.session.flashbag.get('success') %}
+                <div class="alert alert-success" role="alert">{{ flashMessage }}</div>
+            {% endfor %}
+            {##}
+            {% for flashMessage in app.session.flashbag.get('error') %}
+                <div class="alert alert-danger" role="alert">{{ flashMessage }}</div>
+            {% endfor %}
+        </div>
+        <div class="row">
+            <div class="col">
+                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#new-index-modal">New Index</button>
+            </div>
+            <form class="gpt-option-form" action="/opensearch/index" method="post" enctype="multipart/form-data">
+                <div class="modal fade" id="new-index-modal" tabindex="-1" aria-labelledby="new-index-modal-label" aria-hidden="true">
+                    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h1 class="modal-title fs-5" id="new-index-modal-label">New OpenSearch Index</h1>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="title-group mb-3">
+                                    <div class="row mb-2">
+                                        <div class="col-sm">
+                                            <label for="name">Name:</label>
+                                            <input type="text" required class="form-control" id="name" name="name"/>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="config-group">
+                                    <div class="row mb-2">
+                                        <div class="col-sm">
+                                            <label for="dimensions">Dimensions:</label>
+                                            <input type="text" required class="form-control" id="dimensions" name="dimensions" value="1024"/>
+                                        </div>
+                                        <div class="col-sm">
+                                            <label for="analyzer">Analyzer:</label>
+                                            <select required class="form-control" id="analyzer" name="analyzer">
+                                                <option value="standard" selected>Standard</option>
+                                                <option value="simple">Simple</option>
+                                                <option value="english">English</option>
+                                                <option value="russian">Russian</option>
+                                                <option value="keyword">Keyword</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                <button class="btn btn-primary">Create</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                <tr>
+                    <th scope="col">Name</th>
+                    <th scope="col">Dimensions</th>
+                    <th scope="col">Analyzer</th>
+                    <th scope="col">Created At</th>
+                    <th scope="col"></th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for index in paginator %}
+                    <tr>
+                        <td>{{ index.name }}</td>
+                        <td>{{ index.dimensions }}</td>
+                        <td>{{ index.analyzer }}</td>
+                        <td>{{ index.createdAt|date('Y-m-d H:i') }}</td>
+                        <td>
+                            <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#delete-index-{{ index.id }}-modal">Delete</button>
+                            <form class="gpt-option-form" action="/opensearch/index/{{ index.id }}" method="post">
+                                <input type="hidden" name="_method" value="delete">
+                                <div class="modal fade" id="delete-index-{{ index.id }}-modal" tabindex="-1" aria-labelledby="delete-index-{{ index.id }}-modal-label" aria-hidden="true">
+                                    <div class="modal-dialog modal-sm modal-dialog-centered modal-dialog-scrollable">
+                                        <div class="modal-content">
+                                            <div class="modal-header">
+                                                <h1 class="modal-title fs-5" id="delete-index-{{ index.id }}-modal-label">Delete Index "{{ index.name }}"?</h1>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                                <button class="btn btn-danger">Delete</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </form>
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% set _currentRoute = app.request.attributes.get('_route') %}
+        {% set _currentParams = app.request.query.all|merge(app.request.attributes.get('_route_params')) %}
+
+        {% if lastPage > 1 %}
+            <nav>
+                <ul class="pagination justify-content-center">
+                    <li class="page-item{{ page <= 1 ? ' disabled' : '' }}">
+                        <a class="page-link" href="{{ path(_currentRoute, _currentParams|merge({page: page - 1})) }}" aria-label="Prev">
+                            &laquo; Prev
+                        </a>
+                    </li>
+                    {% for i in 1..lastPage %}
+                        <li class="page-item {% if i == page %}active{% endif %}">
+                            <a class="page-link" href="{{ path(_currentRoute, _currentParams|merge({page: i})) }}">{{ i }}</a>
+                        </li>
+                    {% endfor %}
+                    <li class="page-item {{ page >= lastPage ? ' disabled' : '' }}">
+                        <a class="page-link" href="{{ path(_currentRoute, _currentParams|merge({page: page + 1})) }}" aria-label="Next">
+                            Next &raquo;
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        {% endif %}
+    </div>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+{% endblock %}
