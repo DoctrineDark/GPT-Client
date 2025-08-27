@@ -17,7 +17,7 @@
 ### v1.0.0 - Jun 9, 2024
 - Init version
 
-###v1.0.1 - Jul 11, 2025
+### v1.0.1 - Jul 11, 2025
 - Added Cloudflare Workers AI + Vectorize search mode
 
 ### v1.0.2 - Aug 28, 2025
