@@ -12,10 +12,29 @@ $(document).ready(function ()
         updateOptionsForm(gptService);
     });
 
+    var searchModeElement = $('#search_mode');
+    if ($.inArray(searchModeElement.find(':selected').val(), ['hybrid']) > -1) {
+        $('.hybrid-mode-boost-group').removeClass('d-none');
+        $('.hybrid-mode-boost-group').find('input').attr('disabled', false);
+    } else {
+        $('.hybrid-mode-boost-group').addClass('d-none');
+        $('.hybrid-mode-boost-group').find('input').attr('disabled', true);
+    }
+    searchModeElement.on('change', function () {
+        if ($.inArray($(this).find(':selected').val(), ['hybrid']) > -1) {
+            $('.hybrid-mode-boost-group').removeClass('d-none');
+            $('.hybrid-mode-boost-group').find('input').attr('disabled', false);
+        } else {
+            $('.hybrid-mode-boost-group').addClass('d-none');
+            $('.hybrid-mode-boost-group').find('input').attr('disabled', true);
+        }
+    });
+
     function updateOptionsForm(gptService)
     {
         var openaiGptEmbeddingModelSelect = $('#openai_gpt_embedding_model');
         var cloudflareGptEmbeddingModelSelect = $('#cloudflare_gpt_embedding_model');
+        var bgeGptEmbeddingModelSelect = $('#bge_gpt_embedding_model');
 
         var openaiGptModelSelect = $('#openai_gpt_model');
         var cloudflareGptModelSelect = $('#cloudflare_gpt_model');
@@ -31,6 +50,7 @@ $(document).ready(function ()
             case 'cloudflare':
                 switchElementVisibility(openaiGptEmbeddingModelSelect, false);
                 switchElementVisibility(cloudflareGptEmbeddingModelSelect, true);
+                switchElementVisibility(bgeGptEmbeddingModelSelect, false);
 
                 switchElementVisibility(openaiGptModelSelect, false);
                 switchElementVisibility(cloudflareGptModelSelect, true);
@@ -39,15 +59,32 @@ $(document).ready(function ()
                 $('.account-id-group').find('input').attr('required', true);
 
                 $('.cloudflare-index-group').removeClass('d-none');
+                $('.cloudflare-index-group').find('select').removeClass('d-none');
                 $('.cloudflare-index-group').find('select').attr('required', true);
+                $('.cloudflare-index-group').find('select').prop('disabled', false);
 
-                //$('#vector_search_distance_limit').attr('disabled', true);
+                $('.opensearch-index-group').addClass('d-none');
+                $('.opensearch-index-group').find('select').addClass('d-none');
+                $('.opensearch-index-group').find('select').attr('required', false);
+                $('.opensearch-index-group').find('select').prop('disabled', true);
+
+                $('#vector_search_distance_limit').attr('disabled', true);
+
+                $('.min-score-group').addClass('d-none');
+                $('.min-score-group').find('input').attr('disabled', true);
+
+                $('.search-mode-group').addClass('d-none');
+                $('.search-mode-group').find('input').attr('disabled', true);
+
+                $('.hybrid-mode-boost-group').addClass('d-none');
+                $('.hybrid-mode-boost-group').find('input').attr('disabled', true);
 
                 break;
 
-            default:
-                switchElementVisibility(openaiGptEmbeddingModelSelect, true);
+            case 'bge':
+                switchElementVisibility(openaiGptEmbeddingModelSelect, false);
                 switchElementVisibility(cloudflareGptEmbeddingModelSelect, false);
+                switchElementVisibility(bgeGptEmbeddingModelSelect, true);
 
                 switchElementVisibility(openaiGptModelSelect, true);
                 switchElementVisibility(cloudflareGptModelSelect, false);
@@ -56,9 +93,65 @@ $(document).ready(function ()
                 $('.account-id-group').find('input').attr('required', false);
 
                 $('.cloudflare-index-group').addClass('d-none');
+                $('.cloudflare-index-group').find('select').addClass('d-none');
                 $('.cloudflare-index-group').find('select').attr('required', false);
+                $('.cloudflare-index-group').find('select').prop('disabled', true);
 
-                //$('#vector_search_distance_limit').attr('disabled', false);
+                $('.opensearch-index-group').removeClass('d-none');
+                $('.opensearch-index-group').find('select').removeClass('d-none');
+                $('.opensearch-index-group').find('select').attr('required', true);
+                $('.opensearch-index-group').find('select').prop('disabled', false);
+
+                $('#vector_search_distance_limit').attr('disabled', true);
+
+                $('.min-score-group').removeClass('d-none');
+                $('.min-score-group').find('input').attr('disabled', false);
+
+                $('.search-mode-group').removeClass('d-none');
+                $('.search-mode-group').find('input').attr('disabled', false);
+
+                var searchModeElement = $('#search_mode');
+                if ($.inArray(searchModeElement.find(':selected').val(), ['hybrid']) > -1) {
+                    $('.hybrid-mode-boost-group').removeClass('d-none');
+                    $('.hybrid-mode-boost-group').find('input').attr('disabled', false);
+                } else {
+                    $('.hybrid-mode-boost-group').addClass('d-none');
+                    $('.hybrid-mode-boost-group').find('input').attr('disabled', true);
+                }
+
+                break;
+
+            default:
+                switchElementVisibility(openaiGptEmbeddingModelSelect, true);
+                switchElementVisibility(cloudflareGptEmbeddingModelSelect, false);
+                switchElementVisibility(bgeGptEmbeddingModelSelect, false);
+
+                switchElementVisibility(openaiGptModelSelect, true);
+                switchElementVisibility(cloudflareGptModelSelect, false);
+
+                $('.account-id-group').addClass('d-none');
+                $('.account-id-group').find('input').attr('required', false);
+
+                $('.cloudflare-index-group').addClass('d-none');
+                $('.cloudflare-index-group').find('select').addClass('d-none');
+                $('.cloudflare-index-group').find('select').attr('required', false);
+                $('.cloudflare-index-group').find('select').prop('disabled', true);
+
+                $('.opensearch-index-group').addClass('d-none');
+                $('.opensearch-index-group').find('select').addClass('d-none');
+                $('.opensearch-index-group').find('select').attr('required', false);
+                $('.opensearch-index-group').find('select').prop('disabled', true);
+
+                $('#vector_search_distance_limit').attr('disabled', false);
+
+                $('.min-score-group').addClass('d-none');
+                $('.min-score-group').find('input').attr('disabled', true);
+
+                $('.search-mode-group').addClass('d-none');
+                $('.search-mode-group').find('input').attr('disabled', true);
+
+                $('.hybrid-mode-boost-group').addClass('d-none');
+                $('.hybrid-mode-boost-group').find('input').attr('disabled', true);
 
                 break;
         }
@@ -139,19 +232,31 @@ function request(method, url, formData)
                     if (null !== searchResult.entity) {
                         switch (searchResult.type) {
                             case 'article':
-                                message += '<p class="m-0"><b>Distance:</b> '+searchResult.distance+'<a target="_blank" href="/knowledgebase/articles/'+searchResult.entity.id+'" class="link-primary mx-3">'+(searchResult.entity.articleTitle || 'Article#'+searchResult.entity.id)+'</a></p>';
+                                message += '<p class="m-0">';
+                                message += searchResult.distance ? '<b>Distance:</b> '+ searchResult.distance : '';
+                                message += searchResult.score ? '<b>Score:</b> '+ searchResult.score : '';
+                                message += '<a target="_blank" href="/knowledgebase/articles/'+searchResult.entity.id+'" class="link-primary mx-3">'+(searchResult.entity.articleTitle || 'Article#'+searchResult.entity.id)+'</a></p>';
                                 break;
 
                             case 'article_paragraph':
-                                message += '<p class="m-0"><b>Distance:</b> '+searchResult.distance+'<a target="_blank" href="/knowledgebase/articles/'+searchResult.entity.article.id+'/paragraphs/'+searchResult.entity.id+'" class="link-primary mx-3">'+(searchResult.entity.paragraphTitle || 'ArticleParagraph#'+searchResult.entity.id)+'</a></p>';
+                                message += '<p class="m-0">';
+                                message += searchResult.distance ? '<b>Distance:</b> '+ searchResult.distance : '';
+                                message += searchResult.score ? '<b>Score:</b> '+ searchResult.score : '';
+                                message += '<a target="_blank" href="/knowledgebase/articles/'+searchResult.entity.article.id+'/paragraphs/'+searchResult.entity.id+'" class="link-primary mx-3">'+(searchResult.entity.paragraphTitle || 'ArticleParagraph#'+searchResult.entity.id)+'</a></p>';
                                 break;
 
                             case 'template':
-                                message += '<p class="m-0"><b>Distance:</b> '+searchResult.distance+'<a target="_blank" href="/knowledgebase/templates/'+searchResult.entity.id+'" class="link-primary mx-3">'+(searchResult.entity.templateTitle || 'Template#'+searchResult.entity.id)+'</a></p>';
+                                message += '<p class="m-0">';
+                                message += searchResult.distance ? '<b>Distance:</b> '+ searchResult.distance : '';
+                                message += searchResult.score ? '<b>Score:</b> '+ searchResult.score : '';
+                                message += '<a target="_blank" href="/knowledgebase/templates/'+searchResult.entity.id+'" class="link-primary mx-3">'+(searchResult.entity.templateTitle || 'Template#'+searchResult.entity.id)+'</a></p>';
                                 break;
                         }
                     } else {
-                        message += '<p class="m-0"><b>Distance:</b> ' + searchResult.distance + '<a target="_blank" href="/knowledgebase/articles" class="link-primary mx-3">' + searchResult.type + ' #' + searchResult.id + ' (inactive)' + '</a></p>';
+                        message += '<p class="m-0">';
+                        message += searchResult.distance ? '<b>Distance:</b> '+ searchResult.distance : '';
+                        message += searchResult.score ? '<b>Score:</b> '+ searchResult.score : '';
+                        message += '<a target="_blank" href="/knowledgebase/articles" class="link-primary mx-3">' + searchResult.type + ' #' + searchResult.id + ' (inactive)' + '</a></p>';
                     }
                 }.bind(message));
             }

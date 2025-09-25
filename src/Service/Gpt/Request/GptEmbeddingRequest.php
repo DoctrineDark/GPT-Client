@@ -2,8 +2,12 @@
 
 namespace App\Service\Gpt\Request;
 
+use App\Service\Gpt\Extension\Arrayable;
+
 class GptEmbeddingRequest
 {
+    use Arrayable;
+
     /** @var string|null */
     private $accountId;
 

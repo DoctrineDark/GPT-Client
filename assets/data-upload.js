@@ -16,6 +16,7 @@ $(document).ready(function ()
     {
         var openaiGptEmbeddingModelSelect = $('#openai_gpt_embedding_model');
         var cloudflareGptEmbeddingModelSelect = $('#cloudflare_gpt_embedding_model');
+        var bgeGptEmbeddingModelSelect = $('#bge_gpt_embedding_model');
 
         var switchElementVisibility = function(e, bool) {
             if(bool) { e.removeClass('d-none'); }
@@ -28,24 +29,69 @@ $(document).ready(function ()
             case 'cloudflare':
                 switchElementVisibility(openaiGptEmbeddingModelSelect, false);
                 switchElementVisibility(cloudflareGptEmbeddingModelSelect, true);
+                switchElementVisibility(bgeGptEmbeddingModelSelect, false);
+
+                $('.api-key-group').removeClass('d-none');
+                $('.api-key-group').find('input').attr('required', true);
 
                 $('.account-id-group').removeClass('d-none');
                 $('.account-id-group').find('input').attr('required', true);
 
                 $('.cloudflare-index-group').removeClass('d-none');
+                $('.cloudflare-index-group').find('select').removeClass('d-none');
                 $('.cloudflare-index-group').find('select').attr('required', true);
+                $('.cloudflare-index-group').find('select').prop('disabled', false);
+
+                $('.opensearch-index-group').addClass('d-none');
+                $('.opensearch-index-group').find('select').addClass('d-none');
+                $('.opensearch-index-group').find('select').attr('required', false);
+                $('.opensearch-index-group').find('select').prop('disabled', true);
+
+                break;
+
+            case 'bge':
+                switchElementVisibility(openaiGptEmbeddingModelSelect, false);
+                switchElementVisibility(cloudflareGptEmbeddingModelSelect, false);
+                switchElementVisibility(bgeGptEmbeddingModelSelect, true);
+
+                $('.api-key-group').addClass('d-none');
+                $('.api-key-group').find('input').attr('required', false);
+
+                $('.account-id-group').addClass('d-none');
+                $('.account-id-group').find('input').attr('required', false);
+
+                $('.cloudflare-index-group').addClass('d-none');
+                $('.cloudflare-index-group').find('select').addClass('d-none');
+                $('.cloudflare-index-group').find('select').attr('required', false);
+                $('.cloudflare-index-group').find('select').prop('disabled', true);
+
+                $('.opensearch-index-group').removeClass('d-none');
+                $('.opensearch-index-group').find('select').removeClass('d-none');
+                $('.opensearch-index-group').find('select').attr('required', true);
+                $('.opensearch-index-group').find('select').prop('disabled', false);
 
                 break;
 
             default:
                 switchElementVisibility(openaiGptEmbeddingModelSelect, true);
                 switchElementVisibility(cloudflareGptEmbeddingModelSelect, false);
+                switchElementVisibility(bgeGptEmbeddingModelSelect, false);
+
+                $('.api-key-group').removeClass('d-none');
+                $('.api-key-group').find('input').attr('required', true);
 
                 $('.account-id-group').addClass('d-none');
                 $('.account-id-group').find('input').attr('required', false);
 
                 $('.cloudflare-index-group').addClass('d-none');
+                $('.cloudflare-index-group').find('select').addClass('d-none');
                 $('.cloudflare-index-group').find('select').attr('required', false);
+                $('.cloudflare-index-group').find('select').prop('disabled', true);
+
+                $('.opensearch-index-group').addClass('d-none');
+                $('.opensearch-index-group').find('select').addClass('d-none');
+                $('.opensearch-index-group').find('select').attr('required', false);
+                $('.opensearch-index-group').find('select').prop('disabled', true);
 
                 break;
         }

@@ -30,4 +30,5 @@ yarn-error.log
 
 ###> docker/docker ###
 /docker/host/*
+/docker/opensearch/*
 ###< docker/docker ###

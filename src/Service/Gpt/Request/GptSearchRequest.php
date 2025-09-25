@@ -4,8 +4,12 @@
 namespace App\Service\Gpt\Request;
 
 
+use App\Service\Gpt\Extension\Arrayable;
+
 class GptSearchRequest
 {
+    use Arrayable;
+
     /** @var string|null */
     private $searchMode;
 
@@ -23,6 +27,16 @@ class GptSearchRequest
 
     /** @var float|null */
     private $minScore;
+
+    /** @var string|null */
+    private $searchPipeline;
+
+    private $knnModeSearchPipeline;
+
+    private $hybridModeSearchPipeline;
+
+    /** @var bool */
+    private $isEnabledReranking = false;
 
     /**
      * @return string|null
@@ -134,6 +148,82 @@ class GptSearchRequest
     public function setMinScore(?float $minScore): self
     {
         $this->minScore = $minScore;
+
+        return $this;
+    }
+
+    /**
+     * @return string|null
+     */
+    public function getSearchPipeline(): ?string
+    {
+        return $this->searchPipeline;
+    }
+
+    /**
+     * @param string|null $searchPipeline
+     * @return self
+     */
+    public function setSearchPipeline(?string $searchPipeline): self
+    {
+        $this->searchPipeline = $searchPipeline;
+
+        return $this;
+    }
+
+    /**
+     * @return bool
+     */
+    public function isEnabledReranking(): bool
+    {
+        return $this->isEnabledReranking;
+    }
+
+    /**
+     * @param bool $isEnabledReranking
+     * @return self
+     */
+    public function setIsEnabledReranking(bool $isEnabledReranking): self
+    {
+        $this->isEnabledReranking = $isEnabledReranking;
+
+        return $this;
+    }
+
+    /**
+     * @return mixed
+     */
+    public function getKnnModeSearchPipeline()
+    {
+        return $this->knnModeSearchPipeline;
+    }
+
+    /**
+     * @param mixed $knnModeSearchPipeline
+     * @return self
+     */
+    public function setKnnModeSearchPipeline($knnModeSearchPipeline): self
+    {
+        $this->knnModeSearchPipeline = $knnModeSearchPipeline;
+
+        return $this;
+    }
+
+    /**
+     * @return mixed
+     */
+    public function getHybridModeSearchPipeline()
+    {
+        return $this->hybridModeSearchPipeline;
+    }
+
+    /**
+     * @param mixed $hybridModeSearchPipeline
+     * @return self
+     */
+    public function setHybridModeSearchPipeline($hybridModeSearchPipeline): self
+    {
+        $this->hybridModeSearchPipeline = $hybridModeSearchPipeline;
 
         return $this;
     }

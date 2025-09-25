@@ -91,9 +91,7 @@ class DataUploadController extends AbstractController
                 /** @var UploadedFile $articleFile */
                 foreach ($articleFiles as $articleFile) {
                     try {
-                        $articleItems = Items::fromFile($articleFile->getPathname(), ['decoder' => new ExtJsonDecoder(true)]);
-
-                        foreach ($articleItems as $rawArticle) {
+                        foreach (Items::fromFile($articleFile->getPathname(), ['decoder' => new ExtJsonDecoder(true)]) as $rawArticle) {
                             if(is_array($rawArticle)) {
                                 // Validate article
                                 //$errors = $this->validateArticle($this->validator, $rawArticle);
@@ -344,7 +342,7 @@ class DataUploadController extends AbstractController
                     new All([
                         'constraints' => [
                             new File([
-                                'maxSize' => '64M',
+                                'maxSize' => '32M',
                                 'mimeTypes' => ['txt' => 'text/*'],
                             ])
                         ],
@@ -355,7 +353,7 @@ class DataUploadController extends AbstractController
                     new All([
                         'constraints' => [
                             new File([
-                                'maxSize' => '64M',
+                                'maxSize' => '32M',
                                 'mimeTypes' => ['txt' => 'text/*'],
                             ])
                         ],

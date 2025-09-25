@@ -79,6 +79,10 @@ class UrlProvider
         return new Url($url, $method, $parameters, $headers);
     }
 
+    /**
+     * @param array $parameters
+     * @return Url
+     */
     public function bulkInsertVectors(array $parameters)
     {
         $url = $this->originUrl . '' . '_bulk';
@@ -91,6 +95,11 @@ class UrlProvider
         return new Url($url, $method, $parameters, $headers);
     }
 
+    /**
+     * @param string $indexName
+     * @param array $parameters
+     * @return Url
+     */
     public function search(string $indexName, array $parameters)
     {
         $url = $this->originUrl . '' . $indexName . '/' . '_search';

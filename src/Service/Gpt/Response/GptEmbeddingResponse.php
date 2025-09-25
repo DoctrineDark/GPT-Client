@@ -2,8 +2,12 @@
 
 namespace App\Service\Gpt\Response;
 
+use App\Service\Gpt\Extension\Arrayable;
+
 class GptEmbeddingResponse
 {
+    use Arrayable;
+
     /** @var string|null */
     public $model;
 

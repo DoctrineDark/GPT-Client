@@ -24,7 +24,7 @@ services:
     volumes:
       - ./docker/host/dir:/data
     ports:
-      - "127.0.0.1:6379:6379"
+      - "${REDIS_HOST:-127.0.0.1}:6379:6379"
 
   redis-commander:
     image: rediscommander/redis-commander:latest
@@ -39,8 +39,47 @@ services:
     ports:
       - "8081:8081"
 
+  opensearch:
+    #image: opensearchproject/opensearch:latest
+    build:
+      context: ./docker/development/opensearch
+    container_name: opensearch
+    environment:
+      - discovery.type=single-node
+      - bootstrap.memory_lock=false
+      - "OPENSEARCH_JAVA_OPTS=-Xms1g -Xmx1g"
+      - DISABLE_PERFORMANCE_ANALYTICS=true
+      - DISABLE_SECURITY_PLUGIN=true
+
+      # Security plugin
+      #- plugins.security.ssl.http.enabled=false
+      #- plugins.security.disabled=false
+      #- DISABLE_SECURITY_PLUGIN=false
+      #- OPENSEARCH_INITIAL_ADMIN_PASSWORD=SuperStrongPassword123
+
+      # ML Commons
+      - plugins.ml_commons.only_run_on_ml_node=false
+      - plugins.ml_commons.allow_registering_model_via_url=true
+      - plugins.ml_commons.model_access_control_enabled=true
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - opensearch-data:/usr/share/opensearch/data
+      - ${OPENSEARCH_MODELS_PATH}:/usr/share/opensearch/models
+    ports:
+      - "${OPENSEARCH_HOST:-127.0.0.1}:9200:9200"
+      - "${OPENSEARCH_HOST:-127.0.0.1}:9600:9600"
+
   #keydb-by-indus:
   #  image: vsaps/keydb_jsonsearch:latest
   #  restart: always
   #  ports:
   #    - "127.0.0.1:6378:6379"
+
+volumes:
+  opensearch-data:
+    driver: local
+  opensearch-models:
+    driver: local

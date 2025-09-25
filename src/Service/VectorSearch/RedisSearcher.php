@@ -34,6 +34,11 @@ class RedisSearcher
      */
     public function exists(string $key) : bool
     {
+        /**
+         * FORCE DISABLED
+         */
+        return false;
+
         return boolval($this->client->exists($key));
     }
 
@@ -44,7 +49,7 @@ class RedisSearcher
      * @param string|null $type
      * @return array
      */
-    public function scan(string $match, int $cursor = 0, ?int $count = null, ?string $type = null) : array
+    public function scan(string $match, int $cursor = 0, ?int $count = null, ?string $type = null): array
     {
         $options['MATCH'] = $match;
 
@@ -87,7 +92,7 @@ class RedisSearcher
      * @param float $distanceLimit
      * @return array<SearchResponse>
      */
-    public function search(GptEmbeddingResponse $embeddingResponse, int $k = 2, float $distanceLimit = 0.99) : array
+    public function search(GptEmbeddingResponse $embeddingResponse, int $k = 2, float $distanceLimit = 0.99): array
     {
         $this->createIndex($embeddingResponse->dimensions);
 
@@ -133,7 +138,7 @@ class RedisSearcher
      * @param array $raw
      * @return array
      */
-    private function parseRedisResult(array $raw) : array
+    private function parseRedisResult(array $raw): array
     {
         $result = [];
         for ($i = 1; $i < count($raw); $i += 2) {
@@ -165,7 +170,7 @@ class RedisSearcher
      * @param float $distanceLimit
      * @return array
      */
-    private function unifyResults(array $results, int $k, string $idField = 'id', string $distanceField = 'distance', float $distanceLimit = 0.99) : array
+    private function unifyResults(array $results, int $k, string $idField = 'id', string $distanceField = 'distance', float $distanceLimit = 0.99): array
     {
         $haystack = [];
 

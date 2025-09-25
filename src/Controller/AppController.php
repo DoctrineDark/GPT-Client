@@ -557,6 +557,10 @@ class AppController extends AbstractController
                 ->setSearchMode($searchMode)
                 ->setContentBoost($contentBoost)
                 ->setEmbeddingBoost($embeddingBoost)
+                ->setSearchPipeline($this->getParameter('app.opensearch_search_pipeline'))
+                ->setKnnModeSearchPipeline($this->getParameter('app.opensearch_knn_mode_search_pipeline'))
+                ->setHybridModeSearchPipeline($this->getParameter('app.opensearch_hybrid_mode_search_pipeline'))
+                ->setIsEnabledReranking($this->getParameter('app.opensearch_is_enabled_reranking'))
             ;
 
             $promptEmbedding = $this->AIService->embedding($gptService, $promptEmbeddingRequest);

@@ -184,6 +184,33 @@ cloudflare_vectors:
 #    controller: App\Controller\CloudflareIndexController::delete
 #    methods: DELETE
 
+# OpenSearch Indexes
+opensearch_indexes:
+    path: /opensearch/indexes
+    controller: App\Controller\OpenSearchIndexController::index
+    methods: GET|HEAD
+
+opensearch_index_store:
+    path: /opensearch/index
+    controller: App\Controller\OpenSearchIndexController::store
+    methods: POST
+
+opensearch_index_delete:
+    path: /opensearch/index/{index}
+    controller: App\Controller\OpenSearchIndexController::delete
+    methods: DELETE
+
+opensearch_vectors:
+    path: /opensearch/vectors
+    controller: App\Controller\OpenSearchVectorController::index
+    methods: GET|HEAD
+
+#opensearch_vector_delete:
+#    path: /opensearch/index/{index}
+#    controller: App\Controller\OpenSearchIndexController::delete
+#    methods: DELETE
+
+
 # Misc
 test_message:
     path: /test/message
@@ -197,4 +224,18 @@ test_cloudflare_embedding_store:
 test_cloudflare_embedding_search:
     path: /test/cloudflare/embedding/search
     controller: App\Controller\TestController::testCloudflareEmbeddingSearch
+    methods: POST
+
+test_bge_m3_embedding:
+    path: /test/bge_m3/embedding
+    controller: App\Controller\TestController::testBgeM3Embedding
+
+test_opensearch_embedding_store:
+    path: /test/opensearch/embedding/store
+    controller: App\Controller\TestController::testOpenSearchEmbeddingStore
+    methods: POST
+
+test_opensearch_embedding_search:
+    path: /test/opensearch/embedding/search
+    controller: App\Controller\TestController::testOpenSearchEmbeddingSearch
     methods: POST

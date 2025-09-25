@@ -160,6 +160,15 @@ class BGEClient implements Gpt
     {
         $options = $this->buildSearchOptions($embeddingRequest, $embeddingResponse, $gptSearchRequest);
 
+        $this->logger->debug('EMBEDDING REQUEST');
+        $this->logger->debug(json_encode($embeddingRequest->toArray()));
+
+        $this->logger->debug('EMBEDDING RESPONSE');
+        $this->logger->debug(json_encode($embeddingResponse->toArray()));
+
+        $this->logger->debug('SEARCH REQUEST');
+        $this->logger->debug(json_encode($gptSearchRequest->toArray()));
+
         $this->logger->debug('SEARCH OPTIONS');
         $this->logger->debug(json_encode($options));
 
@@ -208,21 +217,27 @@ class BGEClient implements Gpt
     {
         switch ($gptSearchRequest->getSearchMode()) {
             case 'knn':
-                return [
+                $options = [
                     'min_score' => $gptSearchRequest->getMinScore(),
                     'size' => $gptSearchRequest->getVectorSearchResultCount(),
                     'query' => [
                         'knn' => [
                             OpenSearchIndex::EMBEDDING_PROPERTY => [
                                 'vector' => $embedding->embedding,
-                                'k' => 10
+                                'k' => $gptSearchRequest->getVectorSearchResultCount()
                             ]
                         ]
-                    ]
+                    ],
                 ];
 
+                if ($gptSearchRequest->getKnnModeSearchPipeline()) {
+                    $options['search_pipeline'] = $gptSearchRequest->getKnnModeSearchPipeline();
+                }
+
+                break;
+
             case 'hybrid':
-                return [
+                $options = [
                     'size' => $gptSearchRequest->getVectorSearchResultCount(),
                     'collapse' => [
                         'field' => 'id'
@@ -244,7 +259,7 @@ class BGEClient implements Gpt
                                             'knn' => [
                                                 OpenSearchIndex::EMBEDDING_PROPERTY => [
                                                     'vector' => $embedding->embedding,
-                                                    'k' => 10,
+                                                    'k' => $gptSearchRequest->getVectorSearchResultCount(),
                                                     'boost' => $gptSearchRequest->getEmbeddingBoost()
                                                 ]
                                             ]
@@ -257,18 +272,48 @@ class BGEClient implements Gpt
                                 [
                                     'script_score' => [
                                         'script' => [
-                                            'source' => "return (_score >= {$gptSearchRequest->getMinScore()}) ? _score : 0;"
+                                            'source' => "
+                                                double min = params.min; 
+                                                double max = params.max; 
+                                                double min_score = params.min_score; 
+                                                double normalized = (_score - min) / (max - min); 
+                                                return (normalized >= min_score) ? Math.min(normalized, 1.0) : 0;
+                                            ",
+                                            'params' => [
+                                                'min' => 0,
+                                                'max' => 10,
+                                                'min_score' => $gptSearchRequest->getMinScore()
+                                            ]
                                         ]
                                     ]
                                 ]
-                            ]
+                            ],
                         ]
                     ]
                 ];
 
+                if ($gptSearchRequest->getHybridModeSearchPipeline()) {
+                    $options['search_pipeline'] = $gptSearchRequest->getHybridModeSearchPipeline();
+                }
+                
+                break;
+
             default:
                 throw new GptServiceException('Invalid Search Mode.');
         }
+
+        if ($gptSearchRequest->isEnabledReranking()) {
+            $options['ext'] = [
+                'rerank' => [
+                    'rank_window_size' => 10,
+                    'query_context' => [
+                        'query_text' => $embeddingRequest->getPrompt()
+                    ]
+                ]
+            ];
+        }
+        
+        return $options;
     }
 
     /**

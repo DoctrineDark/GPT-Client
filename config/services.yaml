@@ -4,6 +4,12 @@
 # Put parameters here that don't need to change on each machine where the app is deployed
 # https://symfony.com/doc/current/best_practices/configuration.html#application-related-configuration
 parameters:
+    app.searcher_toolkit_url: '%env(SEARCHER_TOOLKIT_URL)%'
+
+    app.opensearch_search_pipeline: '%env(OPENSEARCH_SEARCH_PIPELINE)%'
+    app.opensearch_knn_mode_search_pipeline: '%env(OPENSEARCH_KNN_MODE_SEARCH_PIPELINE)%'
+    app.opensearch_hybrid_mode_search_pipeline: '%env(OPENSEARCH_HYBRID_MODE_SEARCH_PIPELINE)%'
+    app.opensearch_is_enabled_reranking: '%env(bool:OPENSEARCH_IS_ENABLED_RERANKING)%'
 
 services:
     # default configuration for services in *this* file
@@ -88,6 +94,16 @@ services:
         calls:
             - [setProxy, ['%env(CLOUDFLARE_VECTORIZE_PROXY)%']]
             - [setProxyAuth, ['%env(CLOUDFLARE_VECTORIZE_PROXY_AUTH)%']]
+
+    App\Service\BGE\Client:
+        arguments:
+            $originUrl: '%env(SEARCHER_TOOLKIT_URL)%'
+
+    App\Service\OpenSearch\Client:
+        arguments:
+            $originUrl: '%env(OPENSEARCH_URL)%'
+            $user: '%env(OPENSEARCH_USER)%'
+            $password: '%env(OPENSEARCH_PASSWORD)%'
 
     App\Service\OpenAI\Tokenizer\Tokenizer:
         arguments:

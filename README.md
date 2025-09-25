@@ -22,3 +22,6 @@
 
 ### v1.0.2 - Aug 28, 2025
 - Added bge-m3 + OpenSearch search mode
+
+### v1.0.3 - Sep 25, 2025
+- Update OpenSearch search engine: add support for search pipelines
